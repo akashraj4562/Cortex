@@ -1,48 +1,67 @@
 # CORTEX — Product Vision Document
 
-**Version:** 1.0  
+**Version:** 2.0  
 **Date:** 2026-06-01  
 **Author:** Akash Raj  
-**Status:** Living Document
+**Status:** Living Document  
+**Changelog v2.0:** Added communal boards, intent profiling, ambient capture, Slack integration, and pre-meeting ideation. Expanded the causal chain. Added three new expansion vectors (G, H, I). Added Surface Area model. Updated moat and phase table.
 
 ---
 
 ## North Star
 
-> **CORTEX is the operating system for what humans actually pay attention to.**
+> **CORTEX is the operating system for what humans actually pay attention to — and what they intend to do about it.**
 
 Not what people say they care about. Not their job title. Not their LinkedIn endorsements.  
-What they *actually* capture, return to, and act on — day after day.
+What they *actually* capture, return to, and act on — day after day. Across every surface they inhabit: a browser tab, a Slack message, an email they can't reply to yet, a YouTube video they want to share with friends.
 
 ---
 
-## The Problem Worth Solving
+## The Problems Worth Solving
 
-### At the Individual Level (Today)
+### 1. Intent Loss — The Most Expensive Invisible Problem
 
-Valuable thoughts die in transit. A PM sees a sharp product teardown on LinkedIn at 9am — two taps to save, gone by noon. A job post surfaces at the right moment, sits in a browser tab for three days, expires. A product idea sparked mid-commute gets half-typed into a Notes app, never revisited.
+You read an email on your commute. The sender needs a response with Q2 data you don't have on your phone. You can't reply now. Your options: mark as unread (forgotten in 48 hours), star it (lost in 200 starred emails), write a sticky note (analog, no reminder), or make a mental note (gone before you reach a laptop).
 
-The tools we have for thought capture are either too structured (Notion forces you to decide where it goes before you even understand what it is) or too lossy (WhatsApp self-chats have no recall mechanism). Nothing sits in between: **raw capture + intelligent organization**.
+None of these are intelligent. All of them fail. The intent — "reply to Priya with the Q2 revenue breakdown" — dies in transit between the moment you formed it and the moment you could act on it.
 
-### At the Team Level (Tomorrow)
+This happens a dozen times a day, to every knowledge worker. It costs hours per week in re-discovery, missed threads, and the cognitive tax of carrying half-formed intentions mentally.
 
-The knowledge that actually matters in a product organization lives nowhere. It's scattered: a Slack thread where a PM worked through a pricing model, a document no one shared after a competitor analysis, three engineers who independently discovered the same API limitation. Teams reinvent constantly because there's no ambient signal about what colleagues are paying attention to.
+### 2. Thought Capture — Valuable Ideas Die in Transit
 
-### At the Organizational Level (The Real Prize)
+A PM sees a sharp product teardown on LinkedIn at 9am. Two taps to save, gone by noon. A job post surfaces at the right moment, sits in a browser tab for three days, expires. A product idea sparked mid-commute gets half-typed into a Notes app, never revisited. A YouTube on getting better at badminton gets lost in browser history.
 
-LinkedIn tells you who *claims* expertise. Resumes tell you where someone *worked*. Neither tells you what someone actually *knows* — what they've absorbed, stress-tested, and returned to enough times that it's become judgment.
+Tools are either too structured (Notion forces taxonomy before you understand what something is) or too lossy (WhatsApp self-chats have no recall mechanism). Nothing sits in between: **raw capture + intelligent organization**.
 
-There is no system that surfaces **revealed expertise** — expertise proven by attention, not asserted by credential.
+### 3. Pre-Meeting Ideation Waste — Teams Generate Ideas in the Wrong Room
+
+A Search Product team meeting starts. The agenda: brainstorm ideas to improve the product. For the first 45 minutes, everyone sits around a whiteboard generating ideas — ideas that each person had already formed, individually, across the prior two weeks, in different physical and mental contexts. On a commute. In a 1:1. Reading a competitor's changelog at 11pm.
+
+Those ideas weren't captured anywhere shared. So the team reconvenes and restarts from zero. The meeting is not a synthesis session — it's a recall exercise. The most creative individual thoughts never make it into the room because they were lost before the meeting happened.
+
+### 4. Group Intelligence — Community Context Without Group Chat Noise
+
+You're in a badminton group with friends. You find a great training video. You want to share it. Your options: send to the WhatsApp group (noise for everyone, buried in 200 other messages), share individually (effort), post to Instagram (wrong audience). None of these share with *context* — they just broadcast.
+
+What if pushing that video to CORTEX meant it automatically reached the people for whom it's relevant, based on shared context? The badminton group gets it. Your work colleagues don't. No manual routing. Context does the work.
+
+### 5. Institutional Knowledge Loss — What the Org Knows Walks Out the Door
+
+The knowledge that actually matters in a product organization lives nowhere. It's in a Slack thread no one can find, a document shared once and forgotten, a retiring PM's head. Teams reinvent constantly because there's no ambient record of what colleagues were paying attention to, what shaped a decision, or what someone learned from a failure.
 
 ---
 
-## The Core Insight
+## The Core Insight — Expanded
 
-**Attention is the most honest signal of value.**
+**Attention is the most honest signal of value. Intent is the most actionable.**
 
-What a person chooses to capture — unprompted, in their own private stream — tells you more about what they actually know and care about than anything they would put on a CV. The gap between stated preference and revealed preference is where trust breaks down in hiring, team formation, and knowledge markets.
+What a person captures unprompted tells you what they know. What they intended to do with it tells you what they're becoming. The gap between stated preference (résumé, profile) and revealed preference (attention + intent) is where trust breaks down in hiring, team formation, and knowledge markets.
 
-CORTEX closes that gap by making attention observable — first to yourself, then, with consent, to the people around you.
+CORTEX closes that gap in two layers:
+- **Attention layer:** what you chose to pay attention to, over time
+- **Intent layer:** what you meant to do — reply to, learn from, share with, act on — when you couldn't act immediately
+
+Together, these form something no profile can claim: a behavioral record of who you actually are, built one unforced moment at a time.
 
 ---
 
@@ -50,41 +69,58 @@ CORTEX closes that gap by making attention observable — first to yourself, the
 
 ```
 Phase 1: Personal Tool
-  ↓  Capture habit forms. Private corpus grows.
-  
+  ↓  Single user. Paste box. Corty classifies. Corpus grows.
+     Capture habit forms — the only precondition that matters.
+
 Phase 2: Thinking Mirror
   ↓  CORTEX reflects your attention patterns back to you.
      "You've saved 23 things about Swiggy's ops model over 6 months."
      "Your idea backlog is 78% delivery-adjacent."
-  
-Phase 3: Private Social Graph
+     "You have 14 unacted intents older than 7 days."
+
+Phase 3: Ambient Capture
+  ↓  The capture surface expands beyond the browser tab.
+     Corty joins Slack. Gmail integration captures email intents.
+     Browser extension captures from any webpage.
+     You capture wherever you are — not just when you're at a desk.
+
+Phase 4: Communal Boards
+  ↓  Opt-in group contexts. Context-aware relay.
+     Badminton group captures go to the badminton group.
+     Search Product team's pre-meeting ideas land in a shared board.
+     The right content reaches the right people automatically — no manual routing.
+
+Phase 5: Private Social Graph
   ↓  Opt-in signal sharing within a trusted team.
      "Three of you are all reading about the same pricing pattern."
      "No one on the team is paying attention to compliance risk."
-  
-Phase 4: Observational Expertise Graph
+     Overlap detected without raw capture exposure.
+
+Phase 6: Observational Expertise Graph
   ↓  Revealed-preference reputation, not stated-preference credentials.
      You become findable for what you actually know.
-  
-Phase 5: Expertise Market
+     Intent Profile: what you've been moving toward, not just where you've been.
+
+Phase 7: Expertise Market
   ↓  The graph enables routing: who should review this spec?
      Who should interview this candidate? Who has actually solved this?
-  
-Phase 6: Org Memory Infrastructure
+
+Phase 8: Org Memory Infrastructure
   ↓  AI agents query CORTEX to find human context before acting.
-     The corpus becomes the org's long-term memory.
+     The corpus becomes the org's long-term memory layer.
+     Any app can push intent to CORTEX via API.
 ```
 
-Each phase unlocks the next. You cannot build Phase 4 without Phase 1 — the corpus has to be real, earned through daily habit, not seeded retroactively.
+Each phase unlocks the next. Phase 3 (Ambient Capture) requires Phase 1 habit. Phase 4 (Communal Boards) requires Phase 3's capture surface. You cannot seed Phase 6 retroactively — the corpus must be real.
 
 ---
 
-## The Six Expansion Vectors
+## The Nine Expansion Vectors
 
 ### Vector A — Team Idea Pollination
 **What:** Surface serendipitous overlap across a team's private capture streams.  
-**How it creates value:** A PM notices Notion's pricing model three times in one week. Across the table, a monetization engineer is saving the same articles. CORTEX introduces them — or just surfaces the pattern without attribution.  
-**The unlock:** Cross-functional insight without requiring anyone to proactively share.
+**The concrete case:** A Search Product team has a meeting next Thursday. Instead of spending the first 45 minutes generating ideas from scratch, every member has been dropping observations into a shared CORTEX board for two weeks. The meeting starts with 30 ideas already structured, tagged, and ready for evaluation. The meeting becomes a synthesis session, not a recall exercise.  
+**The unlock:** The best ideas form in different places — physical and mental. CORTEX captures them where they form, not where the meeting happens.
 
 ### Vector B — Cross-Functional Translation
 **What:** The same captured item surfaces differently for different roles.  
@@ -96,21 +132,109 @@ Each phase unlocks the next. You cannot build Phase 4 without Phase 1 — the co
 **How it creates value:** Six months after a product call, a new team member asks "why did we choose X?" CORTEX traces the research, the competitive signals, the conversations that informed it.  
 **The unlock:** Institutional memory that doesn't walk out the door when senior people leave.
 
-### Vector D — Observational Expertise Graph *(Biggest Bet)*
+### Vector D — Observational Expertise Graph *(Biggest Structural Bet)*
 **What:** A reputation layer built from revealed preference, not stated credential.  
-**How it creates value:** Every time you capture, you're implicitly signaling what you're paying attention to. Over thousands of captures, a picture emerges — not "PM at Swiggy for 3 years" but "has absorbed 200+ items about on-demand logistics, pricing under uncertainty, and dark store ops."  
-**The unlock:** Hiring that finds the person who *actually* knows the domain. Routing that sends problems to whoever has genuinely thought about them most.  
+**How it creates value:** Every capture signals what you're paying attention to. Over thousands of captures, a picture emerges — not "PM at Swiggy for 3 years" but "has absorbed 200+ items about on-demand logistics, pricing under uncertainty, and dark store ops."  
+**The unlock:** Hiring that finds the person who *actually* knows the domain.  
 **Why it's defensible:** LinkedIn can copy the interface. They cannot copy 18 months of your unfiltered attention corpus.
 
 ### Vector E — Org Memory as AI Infrastructure
 **What:** CORTEX becomes the human-context layer that AI agents query before acting.  
-**How it creates value:** Before a Product Staff agent writes a competitive analysis, it queries CORTEX: "What has Akash already observed about this competitor?" It gets curated, human-vetted signal — not a web crawl. The agent's output is grounded in what the team actually knows, not what the internet says.  
+**How it creates value:** Before a Product Staff agent writes a competitive analysis, it queries CORTEX: "What has Akash already observed about this competitor?" The agent's output is grounded in what the team actually knows, not what the internet says.  
 **The unlock:** AI that operates with organizational memory, not just training data.
 
 ### Vector F — The Private Layer Guarantee
 **What:** A hard architectural principle: your personal corpus is never shared without your explicit, per-item consent.  
-**How it creates value:** Trust is the only thing that makes people capture honestly. The moment someone suspects their private drafts could surface to a manager, the signal dies. CORTEX must be the safest place you've ever put a thought.  
+**How it creates value:** Trust is the only thing that makes people capture honestly. CORTEX must be the safest place you've ever put a thought.  
 **The unlock:** Real signal. Everything else depends on this.
+
+---
+
+### Vector G — Communal Boards *(New)*
+**What:** Opt-in group contexts where CORTEX automatically routes captures to the right audience based on shared context — without manual addressing.
+
+**The concrete cases:**
+- **Badminton group:** You push a badminton training video to your CORTEX mainboard. The context: you're in a "Badminton & Health" group with 5 friends. CORTEX classifies the capture, matches it to the group context, and relays it to the group — without you having to choose who to send it to, when, or through which app.
+- **Product team board:** The Search Product team creates a shared CORTEX board for the upcoming feature brainstorm. For two weeks before the meeting, every team member drops observations — articles, competitor screenshots, user feedback snippets — into the board. By the time the meeting happens, 40+ structured ideas are already waiting. The first agenda item is not "let's brainstorm" but "let's prioritize."
+- **City events:** A group of friends share a CORTEX board for "things happening in Bangalore." Anyone drops an event link; the group sees it in context.
+
+**The core mechanic:** You capture once. CORTEX routes to the right group based on context, not manual addressing. The intelligence is in the routing, not in the user's effort.
+
+**What makes this different from a group chat:**
+| Group chat | Communal Board |
+|---|---|
+| You choose who gets it | Context model routes it |
+| Chronological stream | Classified and tagged |
+| No memory | Persistent and searchable |
+| Noise for irrelevant members | Only relevant captures reach each group |
+| One medium (text/media) | Any capture type (URL, text, intent) |
+
+**The unlock:** Shared ambient intelligence without group chat noise. The right content reaches the right people in the right context — automatically.
+
+---
+
+### Vector H — Intent Profile *(New)*
+**What:** Over time, what you've captured, intended, and acted on forms a behavioral profile — not just what you've absorbed (attention), but what you were moving toward (intent).
+
+**The distinction from the Expertise Graph:**
+- **Attention corpus** → what you paid attention to. Backward-looking. "What do you know?"
+- **Intent profile** → what you meant to do with it. Forward-looking. "What are you building toward?"
+
+**How it forms:**
+Every capture carries intent. A job post = intent to apply. A learning article = intent to build a skill. A product idea = intent to build something. An email intent = intent to reply with specific information. Over hundreds of captures, a pattern of intentions emerges: the domains where you're actively building, the gaps you're trying to close, the opportunities you're moving toward.
+
+**Why it matters:**
+A CV tells you where someone has been. The Expertise Graph tells you what they know. The Intent Profile tells you what they're becoming. That third layer is where the real signal lives for:
+- Hiring: not just "has X done Y" but "X has been actively developing in Y for 9 months — they're arriving at this role with momentum"
+- Team formation: who is moving toward the skill the project needs, even if they don't have it yet
+- Personal development: CORTEX becomes a mirror for your own trajectory — "here's where your intentions are concentrated, and here's where they're scattered"
+
+**Privacy architecture (non-negotiable):**
+The Intent Profile is built locally. It never leaves CORTEX without explicit, opt-in, user-controlled sharing. No profiling without consent. No employer access without explicit sharing. The user controls what is visible, to whom, and for how long.
+
+**The unlock:** The gap between stated preference (LinkedIn profile, CV) and revealed preference (attention + intent) is where trust collapses in professional contexts. The Intent Profile closes that gap — for the first time, with proof.
+
+---
+
+### Vector I — Ambient Capture *(New)*
+**What:** The CORTEX capture surface expands to any context where intents form — not just a browser tab at a desk.
+
+**The core insight:** Intents don't form when you're at a desk with a browser tab open. They form on a commute, in a meeting, reading an email, watching a video, scrolling Slack. The capture tool must be where the intent is — not where it's convenient for the product.
+
+**The surfaces:**
+
+**Slack (Phase 3 — first expansion):**
+Corty joins as a Slack app. You share something with @Corty: a link, a note, a quick "remind me to do X tomorrow." Corty classifies it, adds it to your personal CORTEX, and if it's relevant to a shared board, routes it there. One natural action in an app you're already using. Zero context switch.
+
+**Gmail / Email (Phase 3):**
+You read an email. You can't reply now — you need Q2 data you don't have on your phone. Instead of marking as unread (forgotten) or making a mental note (lost), you tap "CORTEX this." You tell it: "remind me to reply with Q2 revenue breakdown — check every morning until done." CORTEX captures: the intent, the email thread reference, the specific information needed, and the reminder frequency. When you have the data, CORTEX reminds you. It doesn't stop reminding at a fixed time — it persists at the frequency you set until you mark it done.
+
+**Browser Extension (Phase 3):**
+Right-click on any text, image, or page. "Save to CORTEX." The URL, the selected text, and the page context are captured and classified — without opening a new tab, without navigating anywhere.
+
+**Mobile — Share Sheet (Phase 3):**
+From any app on mobile, tap Share → CORTEX. The item is captured, classified, and synced. No separate CORTEX app open required.
+
+**Voice (Phase 4):**
+"Hey Corty, remind me to follow up with Vikas about the WizCommerce proposal on Thursday." Voice → transcription → classification → reminder. The intent forms out loud; CORTEX captures it.
+
+**API — Any App (Phase 5+):**
+CORTEX exposes a capture API. Any application can push an intent or capture to CORTEX. The personal OS for attention becomes infrastructure: email clients, calendar apps, project management tools, and AI agents all route intents through CORTEX.
+
+**The Gmail example in full:**
+> You're on the metro. You open Gmail. You see Priya's message asking for the Q2 revenue breakdown. You can't reply — the data is on your laptop. Your current options: mark as unread, star it, mental note.
+>
+> With CORTEX: you tap "Remind me via CORTEX." You type: "Reply to Priya — Q2 revenue breakdown. Check every morning." CORTEX captures: Priya's thread, your intended response, and your preferred reminder frequency. Every morning, your CORTEX shows: "Intent pending: Reply to Priya with Q2 data." It stays there until you mark it complete. You never lose the intent. You never miss the thread. You never carry it mentally.
+
+**Why this is different from existing tools:**
+| Tool | Problem |
+|---|---|
+| Mark as unread | Gets buried; no context preserved |
+| Star / flag | No reminder; no context |
+| Calendar invite | Wrong tool for non-time-bound intents |
+| Sticky note | No intelligence; no reminder |
+| Mental note | Gone within 24 hours |
+| CORTEX intent | Captures context, persists, reminds at custom frequency, closes the loop |
 
 ---
 
@@ -120,33 +244,46 @@ Each phase unlocks the next. You cannot build Phase 4 without Phase 1 — the co
 |---|---|---|
 | **Capture Habit** | Daily use makes the corpus real | Requires months of friction-free UX; can't be retroactively seeded |
 | **Corpus Depth** | Thousands of unfiltered attention signals | Only earned over time; synthetic data doesn't substitute |
+| **Intent Signal** | Forward-looking behavioral profile | Forms over hundreds of acted and unacted intents; no shortcut |
+| **Surface Network** | Slack, Gmail, browser, mobile — the capture surface is everywhere | More surfaces = more habit = more data = harder to switch |
 | **Overlap Graph** | Shared captures across a team | Network effect; value compounds as more team members join |
-| **Revealed Reputation** | Expertise built from attention, not credentials | Requires years of corpus; no shortcut to authenticity |
+| **Revealed Reputation** | Expertise + intent built from behavior, not credentials | Requires years of corpus; no shortcut to authenticity |
 
-LinkedIn shows who people say they are. Resumes show where they worked. CORTEX shows what they actually know — *proved by what they chose to pay attention to, unprompted, when no one was watching.*
+LinkedIn shows who people say they are. Resumes show where they worked. CORTEX shows what they know and what they're becoming — *proved by what they chose to pay attention to and act on, unprompted, when no one was watching.*
 
 ---
 
-## What CORTEX Is Not
+## What CORTEX Is and Is Not
 
-- **Not a note-taking app.** Notion and Obsidian are for structured thinking. CORTEX is for raw capture. You put thoughts in, CORTEX organizes — you never touch taxonomy.
-- **Not a search engine.** Web crawlers index the internet. CORTEX indexes *you*. The value is human curation, not comprehensiveness.
-- **Not a social network.** Sharing is opt-in, granular, and personal. There is no feed, no follower count, no engagement metric. Attention is not a performance.
-- **Not a replacement for judgment.** CORTEX surfaces patterns and routes context. It doesn't make decisions. The human decides; CORTEX ensures they decide with full context.
+**CORTEX IS:**
+- A raw capture layer: anything goes in, Corty organizes it
+- A personal intelligence mirror: your attention and intent reflected back
+- A communal intelligence layer: group contexts, shared boards, context-aware relay
+- An ambient capture surface: wherever you are, wherever intent forms
+- A privacy-first system: your corpus is yours; sharing is always explicit
+
+**CORTEX IS NOT:**
+- A note-taking app: Notion and Obsidian are for structured thinking. CORTEX is for raw capture. You never touch taxonomy.
+- A social network: there is no feed, no follower count, no engagement metric, no performance. Sharing is always opt-in, granular, and purposeful.
+- A search engine: web crawlers index the internet. CORTEX indexes *you*. The value is human curation, not comprehensiveness.
+- A group chat: communal boards route by context, not by broadcast. The intelligence is in the routing.
+- A replacement for judgment: CORTEX surfaces patterns and routes intents. The human decides; CORTEX ensures they decide with full context and zero lost threads.
 
 ---
 
 ## The Biggest Single Bet
 
-**Vector D: Observational Expertise Graph.**
+**Vector D + Vector H together: Observational Expertise Graph × Intent Profile.**
 
-Every other vector creates value. This one creates a category.
+Separately, each is valuable. The Expertise Graph shows what someone knows. The Intent Profile shows what they're becoming. Together, they produce something that has never existed: a **dynamic, manipulation-resistant, behaviorally-grounded professional identity** — updated every time someone captures a thought, not every time they update a CV.
 
-The professional reputation system as we know it — credentials, titles, endorsements — is deeply broken. It measures inputs (where you studied, who you worked for) rather than outputs (what you actually know). The result is chronic misrouting: wrong people reviewing wrong decisions, hiring based on proxies rather than substance, institutional knowledge lost the moment someone quits.
+The professional reputation system as we know it is broken in two ways:
+1. It measures inputs (where you studied, who you worked for), not outputs (what you actually know)
+2. It's static (updated when job-hunting, not when learning)
 
-CORTEX, at scale, is the only system that can produce a **corpus-backed, manipulation-resistant, revealed-preference reputation layer**. You cannot game it by connecting with the right people. You cannot fake it with a well-crafted profile. It reflects only what you actually chose to pay attention to.
+CORTEX is the first system that can fix both. The corpus updates continuously. The profile reflects what you're learning, not just where you've been. And because it's built from unforced captures rather than self-reported achievements, it cannot be gamed.
 
-That is a different product category from anything that exists today.
+That is a new product category. Not a better LinkedIn. Not a smarter CV. A behavioral record of professional growth — for the first time, with proof.
 
 ---
 
@@ -154,29 +291,31 @@ That is a different product category from anything that exists today.
 
 | Phase | Trigger | Core Product Change | Moat Established |
 |---|---|---|---|
-| **P1: Personal (Now)** | 1 user, daily habit | Single paste box, AI classification | Capture habit |
-| **P2: Reflective** | Corpus > 500 items | Pattern surfacing, attention analytics | Corpus depth |
-| **P3: Team (2-5 people)** | 1 trusted team opts in | Overlap alerts, shared topic streams | Overlap graph |
-| **P4: Org (50+ people)** | Company-level deployment | Role-aware synthesis, decision provenance | Reputation signal |
-| **P5: Graph** | Cross-org or open | Observational expertise routing, hiring signals | Revealed reputation moat |
-| **P6: Infrastructure** | AI-native orgs | Org memory API for AI agents | Ecosystem lock-in |
+| **P1: Personal (Now)** | 1 user, daily habit | Single paste box, AI classification, 8-tab feed | Capture habit |
+| **P2: Thinking Mirror** | Corpus > 500 items | Attention pattern surfacing, topic heatmaps | Corpus depth |
+| **P3: Ambient Capture** | Slack + Gmail integration | Corty on Slack, email intent capture, browser extension | Surface network |
+| **P4: Communal Boards** | 2–5 person group opts in | Group contexts, context-aware relay, pre-meeting boards | Overlap graph begins |
+| **P5: Private Social Graph** | 5–20 person team | Overlap detection, role-aware synthesis, decision provenance | Overlap graph matures |
+| **P6: Expertise Graph** | Cross-team or org | Observational expertise routing + Intent Profile (opt-in) | Reputation signal |
+| **P7: Expertise Market** | Cross-org or open | Hiring signals, problem routing, expertise findability | Revealed reputation moat |
+| **P8: Org Memory** | AI-native orgs | Org memory API for AI agents; capture as infrastructure | Ecosystem lock-in |
 
 ---
 
 ## Success at Each Horizon
 
-**12 months:** One user, 1,000+ captures. Classification accuracy > 85%. At least 3 times where CORTEX surfaces a connection the user would not have made themselves.
+**12 months:** One user, 1,000+ captures. Classification accuracy > 85%. At least 3 times where CORTEX surfaces a connection the user would not have made themselves. Zero lost intents (all reminders completed or consciously dismissed).
 
-**3 years:** A team of 5-10 using CORTEX with opt-in sharing. At least one case where the overlap graph surfaces a missed alignment before it became a missed opportunity.
+**3 years:** A team of 5–10 using CORTEX with communal boards and opt-in sharing. Pre-meeting ideation boards reduce meeting brainstorming time by > 50%. Slack integration is the primary capture surface (more captures via Slack than the web app). At least one case where the overlap graph surfaces a missed alignment before it became a missed opportunity.
 
-**7 years:** The Observational Expertise Graph exists. A PM can be found not because of their title, but because CORTEX knows they've been paying attention to on-demand logistics for four years.
+**7 years:** The Observational Expertise Graph exists alongside the Intent Profile. A PM can be found not because of their title, but because CORTEX knows they've been paying attention to on-demand logistics for four years and have been actively closing skill gaps in that domain for six months. The Intent Profile is a recognized professional credential — employers ask for it, candidates share it willingly.
 
 ---
 
 ## The One-Sentence Pitch
 
-*CORTEX is where professionals capture what they actually care about — and over time, that corpus becomes the most honest record of what they know, what they're building toward, and who they'd work best with.*
+*CORTEX is where professionals capture what they actually care about and what they intend to do about it — and over time, that corpus becomes the most honest record of who they are, what they know, what they're building toward, and who they'd work best with.*
 
 ---
 
-*This document is a living artifact. Each phase should be stress-tested against the product reality of the phase before it. Do not build Phase 3 until Phase 2's corpus depth is real.*
+*This is a living document. Each phase must be validated before the next is built. Do not build communal boards before the personal capture habit is real. Do not build the Intent Profile before the attention corpus is deep. The phases are a sequence, not a menu.*
