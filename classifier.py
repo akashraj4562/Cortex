@@ -7,85 +7,121 @@ client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 # When user writes these keywords after a URL, treat as explicit type intent
 _EXPLICIT_TYPE_KEYWORDS = {
-    "job":       "job_post",
-    "jobs":      "job_post",
-    "job post":  "job_post",
-    "hiring":    "job_post",
-    "apply":     "job_post",
-    "reminder":  "reminder",
-    "remind":    "reminder",
-    "todo":      "reminder",
-    "to do":     "reminder",
-    "idea":      "product_idea",
+    "job":            "job_application",
+    "jobs":           "job_application",
+    "job post":       "job_application",
+    "hiring":         "job_application",
+    "apply":          "job_application",
+    "interview":      "interview_exp",
+    "interviews":     "interview_exp",
+    "reminder":       "reminder",
+    "remind":         "reminder",
+    "todo":           "reminder",
+    "to do":          "reminder",
+    "idea":           "product_idea",
+    "learn":          "learning",
+    "learning":       "learning",
+    "claude":         "learning",   # user's explicit signal: Claude = skill-building
+    "ai":             "learning",
+    "build":          "build_better",
+    "build better":   "build_better",
+    "pm":             "build_better",
 }
 
 # LinkedIn URL patterns → inferred type (when no explicit user keyword)
 _LINKEDIN_URL_TYPES = [
-    ("linkedin.com/jobs/",     "job_post"),
-    ("/activity-",             "blog_post"),
-    ("linkedin.com/posts/",    "blog_post"),
-    ("linkedin.com/pulse/",    "blog_post"),
+    ("linkedin.com/jobs/",  "job_application"),
+    ("/activity-",          "food_for_thought"),  # generic activity posts
+    ("linkedin.com/posts/", "food_for_thought"),
+    ("linkedin.com/pulse/", "food_for_thought"),
 ]
 
-_SYSTEM = """You are Corty, the CORTEX classification engine. Classify input into exactly one content type and extract structured metadata.
+_SYSTEM = """You are Corty, the CORTEX classification engine for a Senior Product Manager named Akash.
 
-Content types:
-- job_post: A job listing, job opportunity, or job description
-- product_idea: A product concept, feature idea, startup idea, or business opportunity
-- reminder: A time-sensitive task, deadline, meeting, to-do, or action item
-- learning: Educational content to actively study — tutorials, how-to guides, documentation, courses, technical deep-dives, skill-building
-- blog_post: Interesting content for reference — LinkedIn posts, news, company updates, product launches, opinions, newsletters, Substack, industry analysis, thought leadership
-- general_note: Anything else worth capturing — casual thoughts, WhatsApp-style short messages, observations
+Classify each input into exactly one of these INTENT-BASED types — meaning: what will Akash DO with this?
 
-Distinction between learning and blog_post:
-- learning = you want to actively study and practice this (skill-building, documentation, tutorials, improving a specific skill like Claude/AI/coding)
-- blog_post = interesting read for awareness (news, opinions, product features, industry trends, someone's story/experience on LinkedIn)
-- All Substack links → blog_post
-- LinkedIn posts (linkedin.com/posts/ or /activity-) → almost always blog_post unless clearly educational
+Types:
+- job_application: A job listing or hiring post. Action: Akash will apply when ready.
+- food_for_thought: Interesting reads to stay informed — company stories, industry news, product launches, someone's career experience, general LinkedIn posts that are worth reading but not acting on immediately.
+- build_better: Content to improve Akash's product work — PM frameworks, product teardowns, feature analysis, thought exercises on how to improve a product, strategic product thinking.
+- learning: Skill-building content to actively study — Claude/AI tools, technical tutorials, how to build better, documentation, course material. Particularly anything about Claude, AI agents, prompting, or product-tech skills.
+- interview_exp: Interview experiences, company culture stories, hiring manager perspectives, career move advice, things useful when navigating job interviews or company research.
+- reminder: Time-sensitive task, deadline, meeting, to-do.
+- product_idea: A concrete product/feature idea Akash wants to build.
+- general_note: Anything that doesn't clearly fit above.
 
-URL intelligence:
-- linkedin.com/posts/ or /activity- → likely blog_post (someone's LinkedIn post)
-- linkedin.com/jobs/ → job_post
-- substack.com → blog_post (source: substack)
-- docs.* or *.dev/docs → likely learning
+Classification signals (in priority order):
+1. Explicit user keyword (highest priority — Akash always means what he writes):
+   - "Job" / "hiring" → job_application
+   - "Interview" → interview_exp
+   - "Learn" / "learning" → learning
+   - "Claude" → learning (Akash uses Claude as a builder tool)
+   - "Build" / "PM" → build_better
+   - Topic hints like "Swiggy", "Google Maps", "OpenAI" alone → food_for_thought (unless content says otherwise)
 
-Known projects for product_idea: {known_projects}
-If a product idea relates to a known project → use that name. Otherwise → "New Idea".
+2. URL pattern:
+   - linkedin.com/jobs/ → job_application
+   - linkedin.com/posts/ or /activity- → likely food_for_thought unless content says otherwise
+   - substack.com → food_for_thought
+   - docs.* or technical tutorials → learning
 
-topic_hint priority: If the user provides a topic_hint (keyword after URL), use it as the `topic` field. Capitalize it.
-explicit_type: If explicit_type is provided, you MUST classify as that type. Extract metadata for that type. Set confidence ≥ 0.90.
+3. Content analysis (when URL is scraped):
+   - Is it a job listing? → job_application
+   - Is someone sharing their interview experience? → interview_exp
+   - Is it a PM framework, product analysis, "how I improved X product"? → build_better
+   - Is it an interesting story or industry read? → food_for_thought
+   - Is it skill-building for Claude, AI, or technical building? → learning
+
+Note on "food_for_thought" vs "build_better":
+- food_for_thought = passive consumption — read, reflect, stay informed
+- build_better = active application — a framework, teardown, or analysis you'll USE in your work
+
+Note on "learning" vs "build_better":
+- learning = skill-building (study and practice)
+- build_better = product/PM application (strategy and frameworks)
+
+If explicit_type is provided in the prompt, you MUST use it. Set confidence ≥ 0.90.
+topic_hint: when provided, use as the `topic` field. Capitalize it.
 
 IMPORTANT RULES:
-- NEVER return confidence below 0.72 for real text. When uncertain between types → prefer general_note.
-- Short casual messages, WhatsApp texts, informal notes → general_note, confidence ≥ 0.80.
-- If input is a URL you cannot fully evaluate, use URL domain + topic_hint to classify. Still set confidence ≥ 0.72.
-- Only return confidence < 0.70 if input is completely meaningless.
+- NEVER return confidence below 0.72 for real text input.
+- For LinkedIn posts with no extra context → food_for_thought is the safe default.
+- When uncertain → prefer food_for_thought over general_note.
+- Only return confidence < 0.70 for truly meaningless input.
+
+Known projects for product_idea: {known_projects}
 
 Return ONLY valid JSON:
 {{
-  "type": "job_post|product_idea|reminder|learning|blog_post|general_note",
+  "type": "job_application|food_for_thought|build_better|learning|interview_exp|reminder|product_idea|general_note",
   "confidence": 0.0-1.0,
-  "rationale": "one concise sentence",
+  "rationale": "one concise sentence explaining the intent-based classification",
   "metadata": {{...type-specific fields...}},
   "tags": ["tag1", "tag2", "tag3"]
 }}
 
 Metadata schemas:
 
-job_post:
-{{"company": "infer from URL/content or empty", "role": "infer from URL/content or Job Post", "location": "", "url": "", "deadline": null, "seniority": ""}}
+job_application:
+{{"company": "infer from URL slug or content", "role": "infer from URL slug or content", "location": "", "url": "", "deadline": null, "seniority": ""}}
 
-product_idea:
-{{"title": "5 words max", "project": "project name or New Idea", "core_insight": "one sentence", "one_liner": "pitch sentence"}}
+food_for_thought:
+{{"title": "post/article title", "topic": "topic area (e.g. Swiggy, Google Maps, AI)", "url": "", "summary": "1-2 sentences on what's interesting", "source": "linkedin|substack|company_blog|news|other"}}
+
+build_better:
+{{"title": "what the framework/idea is", "topic": "topic area (e.g. Google Maps, Product Strategy)", "url": "", "summary": "what Akash will apply from this", "source": "linkedin|substack|other"}}
+
+learning:
+{{"title": "what to learn", "topic": "skill area (e.g. Claude, AI Agents, Prompting, React)", "url": "", "summary": "what Akash will learn or improve"}}
+
+interview_exp:
+{{"title": "company or topic", "topic": "company or domain (e.g. Google, Swiggy, PM Interviews)", "url": "", "summary": "what's relevant for interviews or career"}}
 
 reminder:
 {{"task": "clear action", "due_date": "YYYY-MM-DD or null", "priority": "high|medium|low", "recurrence": null}}
 
-learning:
-{{"title": "what to learn", "topic": "topic name (e.g. Claude, Payments, React)", "url": "", "summary": "what you'll learn or get from this"}}
-
-blog_post:
-{{"title": "post/article title or best guess", "topic": "topic (e.g. Swiggy, Google Maps, AI)", "url": "", "summary": "1-2 sentences on what's interesting", "source": "linkedin|substack|company_blog|news|other"}}
+product_idea:
+{{"title": "5 words max", "project": "project name or New Idea", "core_insight": "one sentence", "one_liner": "pitch sentence"}}
 
 general_note:
 {{"title": "short title inferred from content", "summary": "1-2 sentences"}}
@@ -99,32 +135,30 @@ def parse_input(raw):
     Parse raw input into (url, topic_hint, explicit_type).
 
     Handles:
-    - Pattern A: URL only
-    - Pattern B: URL + keyword on same line: "https://url.com Claude"
-    - Pattern C: URL + keyword on next line: "https://url.com\\n\\nClaude" (WhatsApp style)
-    - Pattern D: plain text (no URL)
+    - URL only
+    - URL + keyword on same line: "https://url.com Claude"
+    - URL + keyword on next line (WhatsApp style): "https://url.com\\n\\nClaude"
+    - Plain text (no URL)
 
     Returns:
       url:           the URL string, or None
-      topic_hint:    keyword(s) the user appended (same line or next lines), or None
-      explicit_type: if topic_hint matches a known classification keyword, the forced type; or None
+      topic_hint:    keyword(s) the user appended, or None
+      explicit_type: forced type from keyword or URL pattern, or None
     """
     raw = raw.strip()
 
-    # Match URL at the start (handle trailing spaces before newlines)
     url_match = re.match(r'^(https?://[^\s]+|www\.[^\s]+)', raw)
     if not url_match:
         return None, None, None
 
-    url = url_match.group(1).rstrip('.,;')  # strip accidental trailing punctuation
+    url = url_match.group(1).rstrip('.,;')
     remainder = raw[len(url_match.group(1)):].strip()
 
-    # Remainder may be multi-line (WhatsApp style: blank line then keyword)
-    # Collapse to first non-empty content
+    # Collect all non-empty lines after the URL (handles WhatsApp next-line keywords)
     lines = [l.strip() for l in remainder.splitlines() if l.strip()]
     topic_hint = " ".join(lines) if lines else None
 
-    # Explicit type from user keyword
+    # Explicit type from user keyword (highest priority)
     explicit_type = None
     if topic_hint:
         kw = topic_hint.lower().strip()
@@ -147,8 +181,6 @@ def is_substack(url):
 def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, explicit_type=None):
     """
     Classify input. Returns dict: type, confidence, rationale, metadata, tags.
-
-    explicit_type: pre-determined type (from keyword or URL pattern) — Claude must use it.
     """
     import datetime
 
@@ -162,7 +194,7 @@ def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, exp
     if scraped_text:
         parts.append(scraped_text)
     elif source_url:
-        parts.append(f"URL (could not be scraped — use URL pattern and topic hint): {source_url}")
+        parts.append(f"URL (could not be scraped — use URL pattern and topic hint to classify): {source_url}")
     else:
         parts.append(raw_input)
 
@@ -217,25 +249,22 @@ def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, exp
 
     # Substack override
     if is_substack(source_url) and result.get("confidence", 0) >= 0.50:
-        result["type"] = "blog_post"
+        result["type"] = "food_for_thought"
         meta.setdefault("source", "substack")
 
-    # Explicit type must be honoured (user's stated intent overrides Claude)
+    # Honour explicit_type (user's stated intent is always correct)
     if explicit_type and result.get("confidence", 0) >= 0.50:
         result["type"] = explicit_type
-        if explicit_type in ("learning", "blog_post") and "topic" not in meta:
-            meta["topic"] = ""
 
     # Normalize topic to Title Case
     if meta.get("topic"):
         meta["topic"] = meta["topic"].strip().title()
 
-    # If topic_hint given but topic empty, apply it (only for types that use topic)
-    if topic_hint and result.get("type") in ("learning", "blog_post"):
-        if not meta.get("topic"):
-            # Don't use explicit classification keywords as topic (e.g. "Job" shouldn't be topic)
-            kw = topic_hint.lower().strip()
-            if kw not in _EXPLICIT_TYPE_KEYWORDS:
+    # Apply topic_hint if topic is empty (but don't use explicit classification keywords as topic)
+    if topic_hint and not meta.get("topic"):
+        kw = topic_hint.lower().strip()
+        if kw not in _EXPLICIT_TYPE_KEYWORDS:
+            if result.get("type") in ("food_for_thought", "build_better", "learning", "interview_exp"):
                 meta["topic"] = topic_hint.strip().title()
 
     # Low confidence → unclassified

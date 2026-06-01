@@ -39,10 +39,9 @@ class TestParseInput(unittest.TestCase):
         self.assertEqual(url, "https://example.com")
         self.assertEqual(hint, "Claude")
 
-    # ── Multi-line keyword (WhatsApp style: URL then keyword on next line) ──
+    # ── Multi-line keyword (WhatsApp style) ──
 
     def test_url_keyword_on_next_line(self):
-        """WhatsApp style: URL on line 1, blank line, keyword on line 3."""
         raw = "https://linkedin.com/posts/abc \n\nSwiggy"
         url, hint, etype = parse_input(raw)
         self.assertIsNotNone(url)
@@ -57,65 +56,88 @@ class TestParseInput(unittest.TestCase):
         raw = "https://linkedin.com/posts/job123 \n\nJob"
         url, hint, etype = parse_input(raw)
         self.assertEqual(hint, "Job")
-        self.assertEqual(etype, "job_post")
+        self.assertEqual(etype, "job_application")
 
     # ── Explicit type keywords ──
 
     def test_explicit_keyword_job(self):
-        _, hint, etype = parse_input("https://example.com Job")
-        self.assertEqual(etype, "job_post")
+        _, _, etype = parse_input("https://example.com Job")
+        self.assertEqual(etype, "job_application")
 
     def test_explicit_keyword_jobs(self):
-        _, hint, etype = parse_input("https://example.com jobs")
-        self.assertEqual(etype, "job_post")
+        _, _, etype = parse_input("https://example.com jobs")
+        self.assertEqual(etype, "job_application")
 
     def test_explicit_keyword_job_case_insensitive(self):
-        _, hint, etype = parse_input("https://example.com JOB")
-        self.assertEqual(etype, "job_post")
+        _, _, etype = parse_input("https://example.com JOB")
+        self.assertEqual(etype, "job_application")
 
     def test_explicit_keyword_reminder(self):
-        _, hint, etype = parse_input("https://example.com reminder")
+        _, _, etype = parse_input("https://example.com reminder")
         self.assertEqual(etype, "reminder")
 
     def test_explicit_keyword_idea(self):
-        _, hint, etype = parse_input("https://example.com idea")
+        _, _, etype = parse_input("https://example.com idea")
         self.assertEqual(etype, "product_idea")
 
-    def test_topic_hint_not_explicit(self):
-        """Topic hints like 'Swiggy', 'Claude' should NOT be explicit types."""
+    def test_explicit_keyword_interview(self):
+        _, _, etype = parse_input("https://example.com interview")
+        self.assertEqual(etype, "interview_exp")
+
+    def test_explicit_keyword_learn(self):
+        _, _, etype = parse_input("https://example.com learn")
+        self.assertEqual(etype, "learning")
+
+    def test_explicit_keyword_build(self):
+        _, _, etype = parse_input("https://example.com build")
+        self.assertEqual(etype, "build_better")
+
+    def test_topic_hint_swiggy_not_explicit(self):
+        """Topic hints like 'Swiggy' should NOT be explicit types."""
         _, hint, etype = parse_input("https://example.com Swiggy")
         self.assertEqual(hint, "Swiggy")
-        self.assertIsNone(etype)  # not an explicit classification keyword
+        self.assertIsNone(etype)
 
-    def test_topic_hint_claude_not_explicit(self):
+    def test_explicit_keyword_claude_routes_to_learning(self):
+        """'Claude' keyword = learning intent (user builds with Claude)."""
         _, hint, etype = parse_input("https://example.com Claude")
         self.assertEqual(hint, "Claude")
-        self.assertIsNone(etype)
+        self.assertEqual(etype, "learning")
+
+    def test_explicit_keyword_ai_routes_to_learning(self):
+        _, _, etype = parse_input("https://example.com AI")
+        self.assertEqual(etype, "learning")
 
     # ── LinkedIn URL pattern detection ──
 
-    def test_linkedin_posts_url_infers_blog_post(self):
+    def test_linkedin_posts_url_infers_food_for_thought(self):
         _, _, etype = parse_input("https://www.linkedin.com/posts/jeevanshu-narang_abc")
-        self.assertEqual(etype, "blog_post")
+        self.assertEqual(etype, "food_for_thought")
 
-    def test_linkedin_activity_url_infers_blog_post(self):
+    def test_linkedin_activity_url_infers_food_for_thought(self):
         _, _, etype = parse_input("https://www.linkedin.com/posts/activity-7464940271676444672-iZt3")
-        self.assertEqual(etype, "blog_post")
+        self.assertEqual(etype, "food_for_thought")
 
-    def test_linkedin_jobs_url_infers_job_post(self):
+    def test_linkedin_jobs_url_infers_job_application(self):
         _, _, etype = parse_input("https://www.linkedin.com/jobs/view/12345")
-        self.assertEqual(etype, "job_post")
+        self.assertEqual(etype, "job_application")
 
     def test_explicit_keyword_overrides_linkedin_inference(self):
-        """User writes 'Job' explicitly — even for a linkedin/posts URL, honour user."""
+        """'Job' keyword on a linkedin/posts URL → job_application."""
         _, _, etype = parse_input("https://www.linkedin.com/posts/abc \n\nJob")
-        self.assertEqual(etype, "job_post")
+        self.assertEqual(etype, "job_application")
 
-    def test_topic_hint_does_not_set_explicit_type_for_linkedin(self):
-        """'Swiggy' hint on a linkedin/posts URL → blog_post from URL, not from hint."""
+    def test_swiggy_hint_on_linkedin_stays_food_for_thought(self):
+        """'Swiggy' hint on linkedin/posts → food_for_thought (Swiggy is not an explicit keyword)."""
         _, hint, etype = parse_input("https://www.linkedin.com/posts/swiggy-post \n\nSwiggy")
         self.assertEqual(hint, "Swiggy")
-        self.assertEqual(etype, "blog_post")  # from LinkedIn URL pattern
+        self.assertEqual(etype, "food_for_thought")
+
+    def test_claude_hint_on_linkedin_overrides_to_learning(self):
+        """'Claude' hint on linkedin/posts → learning (explicit keyword beats URL pattern)."""
+        _, hint, etype = parse_input("https://www.linkedin.com/posts/eordax_ai \n\nClaude")
+        self.assertEqual(hint, "Claude")
+        self.assertEqual(etype, "learning")
 
 
 class TestIsSubstack(unittest.TestCase):

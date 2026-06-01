@@ -74,7 +74,7 @@ def capture():
 @app.route("/api/feed")
 def feed():
     ct = request.args.get("type") or None
-    grouped_types = {"learning", "blog_post"}
+    grouped_types = {"learning", "food_for_thought", "build_better", "interview_exp"}
 
     if ct in grouped_types:
         groups = db.get_captures_grouped_by_topic(content_type=ct)

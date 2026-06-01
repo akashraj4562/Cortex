@@ -17,7 +17,7 @@ _MOCK_REMINDER = {
 }
 
 _MOCK_JOB = {
-    "type": "job_post",
+    "type": "job_application",
     "confidence": 0.91,
     "rationale": "Mock: job listing",
     "metadata": {"company": "TestCo", "role": "PM", "location": "Remote",
@@ -150,10 +150,10 @@ class TestFeedGrouped(unittest.TestCase):
             conn.execute("DROP TABLE IF EXISTS captures")
         db.init_db()
 
-    def test_blog_feed_is_grouped(self):
-        db.insert_capture("b1", "blog_post", 0.85, "",
-            {"title": "T", "topic": "Swiggy", "url": "", "summary": "", "source": "news"}, [])
-        res = self.client.get("/api/feed?type=blog_post")
+    def test_food_for_thought_feed_is_grouped(self):
+        db.insert_capture("b1", "food_for_thought", 0.85, "",
+            {"title": "T", "topic": "Swiggy", "url": "", "summary": "", "source": "linkedin"}, [])
+        res = self.client.get("/api/feed?type=food_for_thought")
         data = json.loads(res.data)
         self.assertTrue(data["grouped"])
         self.assertIn("groups", data)
@@ -166,7 +166,7 @@ class TestFeedGrouped(unittest.TestCase):
         self.assertTrue(data["grouped"])
 
     def test_jobs_feed_not_grouped(self):
-        res = self.client.get("/api/feed?type=job_post")
+        res = self.client.get("/api/feed?type=job_application")
         data = json.loads(res.data)
         self.assertFalse(data["grouped"])
         self.assertIn("cards", data)

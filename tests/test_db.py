@@ -64,22 +64,22 @@ class TestDB(unittest.TestCase):
         self.assertTrue(card["completed"])
 
     def test_get_captures_by_type(self):
-        db.insert_capture("job1", "job_post", 0.9, "",
+        db.insert_capture("job1", "job_application", 0.9, "",
             {"company": "A", "role": "PM", "location": "", "url": "", "deadline": None, "seniority": ""}, [])
         db.insert_capture("note1", "general_note", 0.8, "",
             {"title": "N", "summary": ""}, [])
-        jobs = db.get_captures(content_type="job_post")
+        jobs = db.get_captures(content_type="job_application")
         self.assertEqual(len(jobs), 1)
-        self.assertEqual(jobs[0]["type"], "job_post")
+        self.assertEqual(jobs[0]["type"], "job_application")
 
     def test_jobs_sorted_oldest_first(self):
         import time
-        db.insert_capture("job_a", "job_post", 0.9, "",
+        db.insert_capture("job_a", "job_application", 0.9, "",
             {"company": "A", "role": "PM", "location": "", "url": "", "deadline": None, "seniority": ""}, [])
         time.sleep(0.02)
-        db.insert_capture("job_b", "job_post", 0.9, "",
+        db.insert_capture("job_b", "job_application", 0.9, "",
             {"company": "B", "role": "PM", "location": "", "url": "", "deadline": None, "seniority": ""}, [])
-        jobs = db.get_captures(content_type="job_post")
+        jobs = db.get_captures(content_type="job_application")
         self.assertEqual(jobs[0]["metadata"]["company"], "A")  # oldest first
 
     def test_reminder_badge_today(self):
@@ -98,22 +98,22 @@ class TestDB(unittest.TestCase):
         self.assertEqual(n_before, n_after)  # future reminder doesn't change badge
 
     def test_grouped_by_topic(self):
-        db.insert_capture("b1", "blog_post", 0.85, "",
-            {"title": "T1", "topic": "Swiggy", "url": "", "summary": "", "source": "news"}, [])
-        db.insert_capture("b2", "blog_post", 0.85, "",
-            {"title": "T2", "topic": "Claude", "url": "", "summary": "", "source": "other"}, [])
-        groups = db.get_captures_grouped_by_topic("blog_post")
-        topics = [g["topic"] for g in groups]
-        self.assertIn("Swiggy", topics)
-        self.assertIn("Claude", topics)
+        db.insert_capture("b1", "food_for_thought", 0.85, "",
+            {"title": "T1", "topic": "Swiggy", "url": "", "summary": "", "source": "linkedin"}, [])
+        db.insert_capture("b2", "learning", 0.85, "",
+            {"title": "T2", "topic": "Claude", "url": "", "summary": ""}, [])
+        groups_fft = db.get_captures_grouped_by_topic("food_for_thought")
+        groups_learn = db.get_captures_grouped_by_topic("learning")
+        self.assertIn("Swiggy", [g["topic"] for g in groups_fft])
+        self.assertIn("Claude", [g["topic"] for g in groups_learn])
 
     def test_tab_counts(self):
-        db.insert_capture("j", "job_post", 0.9, "",
+        db.insert_capture("j", "job_application", 0.9, "",
             {"company": "X", "role": "PM", "location": "", "url": "", "deadline": None, "seniority": ""}, [])
         db.insert_capture("n", "general_note", 0.8, "",
             {"title": "N", "summary": ""}, [])
         counts = db.get_tab_counts()
-        self.assertGreaterEqual(counts.get("job_post", 0), 1)
+        self.assertGreaterEqual(counts.get("job_application", 0), 1)
         self.assertGreaterEqual(counts.get("general_note", 0), 1)
 
 

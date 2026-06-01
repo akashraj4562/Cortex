@@ -66,8 +66,8 @@ def get_captures(content_type=None, include_archived=False):
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
-        if content_type == "job_post":
-            order = "created_at ASC"
+        if content_type == "job_application":
+            order = "created_at ASC"  # oldest first — apply urgency
         elif content_type == "reminder":
             order = "json_extract(metadata, '$.due_date') ASC, created_at ASC"
         else:
@@ -181,14 +181,24 @@ def _row_to_card(row):
 
 
 def _make_display_text(ct, metadata, raw_input):
-    if ct == "job_post":
+    if ct == "job_application":
         company = metadata.get("company") or "Unknown"
-        role = metadata.get("role") or "Role"
+        role = metadata.get("role") or "Job Post"
         location = metadata.get("location") or ""
         seniority = metadata.get("seniority") or ""
         title = f"{company} — {role}"
         parts = [p for p in [location, seniority] if p]
         return title, " · ".join(parts)
+
+    if ct in ("food_for_thought", "build_better", "interview_exp"):
+        title = metadata.get("title") or raw_input[:60]
+        topic = metadata.get("topic") or ""
+        return title, topic
+
+    if ct == "learning":
+        title = metadata.get("title") or raw_input[:60]
+        topic = metadata.get("topic") or ""
+        return title, topic
 
     if ct == "product_idea":
         idea_title = metadata.get("title") or metadata.get("one_liner") or raw_input[:60]
@@ -202,18 +212,6 @@ def _make_display_text(ct, metadata, raw_input):
         subtitle = f"{due} · {priority}" if due else priority
         return task, subtitle
 
-    if ct == "learning":
-        title = metadata.get("title") or raw_input[:60]
-        topic = metadata.get("topic") or ""
-        return title, topic
-
-    if ct == "blog_post":
-        title = metadata.get("title") or raw_input[:60]
-        topic = metadata.get("topic") or ""
-        source = metadata.get("source") or ""
-        subtitle = " · ".join(p for p in [topic, source] if p)
-        return title, subtitle
-
     if ct == "general_note":
         title = metadata.get("title") or raw_input[:60]
         summary = (metadata.get("summary") or "")[:80]
@@ -224,7 +222,7 @@ def _make_display_text(ct, metadata, raw_input):
 
 def _make_actions(ct, metadata):
     base = ["archive"]
-    if ct in ("job_post", "learning", "blog_post") and metadata.get("url"):
+    if ct in ("job_application", "food_for_thought", "build_better", "learning", "interview_exp") and metadata.get("url"):
         base.insert(0, "open_url")
     if ct == "reminder":
         base.insert(0, "complete")
