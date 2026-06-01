@@ -8,13 +8,13 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0f0f11;
-      --surface: #1a1a1f;
-      --surface2: #222228;
-      --border: #2e2e38;
-      --text: #e8e8f0;
-      --text2: #9090a8;
-      --accent: #7B61FF;
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --surface2: #f0f0f3;
+      --border: #d8d8e0;
+      --text: #1a1a2e;
+      --text2: #6b6b80;
+      --accent: #6248d8;
       --radius: 10px;
     }
 
@@ -275,8 +275,8 @@
     }
     .action-btn:hover { background: var(--border); color: var(--text); }
     .action-btn.open { color: var(--accent); border-color: var(--accent); }
-    .action-btn.complete { color: #5cb870; border-color: #5cb870; }
-    .action-btn.archive { color: #9090a8; }
+    .action-btn.complete { color: #2e8b57; border-color: #2e8b57; }
+    .action-btn.archive { color: var(--text2); }
 
     .card-time {
       font-size: 10px;
@@ -287,7 +287,7 @@
     /* unclassified card */
     .card.unclassified {
       border-style: dashed;
-      border-color: #444;
+      border-color: #b0b0c0;
     }
 
     /* empty state */
@@ -395,14 +395,27 @@
         return;
       }
 
-      const card = await res.json();
+      const result = await res.json();
       $('capture-box').value = '';
-      setStatus(`✓ Captured as ${card.display.label}${card.metadata.topic ? ' · ' + card.metadata.topic : ''}`, 'ok');
 
-      // If viewing the same type (or All), prepend card
-      if (!activeType || activeType === card.type) {
-        prependCard(card);
+      // Handle both single card (has .type) and multi-card (has .cards)
+      const cards = result.cards || [result];
+      const count = cards.length;
+
+      if (count === 1) {
+        const card = cards[0];
+        const topic = card.metadata && card.metadata.topic ? ' · ' + card.metadata.topic : '';
+        setStatus(`✓ Captured as ${card.display.label}${topic}`, 'ok');
+      } else {
+        const summary = cards.map(c => c.display.icon + ' ' + c.display.label).join('  ');
+        setStatus(`✓ ${count} items captured: ${summary}`, 'ok');
       }
+
+      cards.forEach(card => {
+        if (!activeType || activeType === card.type) {
+          prependCard(card);
+        }
+      });
 
       updateReminderBadge();
     } catch (err) {
@@ -453,7 +466,7 @@
     groups.forEach(g => {
       const div = document.createElement('div');
       div.className = 'topic-group';
-      div.innerHTML = `<div class="topic-header">${esc(g.topic)} <span style="color:#555;font-weight:400">(${g.cards.length})</span></div>`;
+      div.innerHTML = `<div class="topic-header">${esc(g.topic)} <span style="color:var(--text2);font-weight:400">(${g.cards.length})</span></div>`;
       const inner = document.createElement('div');
       inner.className = 'topic-cards';
       g.cards.forEach(c => inner.appendChild(makeCard(c)));
@@ -474,7 +487,7 @@
   function makeCard(card) {
     const d = card.display;
     const isUnclassified = card.type === 'unclassified';
-    const confColor = card.confidence >= 0.85 ? '#5cb870' : card.confidence >= 0.70 ? '#e8b34a' : '#e05c5c';
+    const confColor = card.confidence >= 0.85 ? '#2e8b57' : card.confidence >= 0.70 ? '#c07a20' : '#c0392b';
 
     const el = document.createElement('div');
     el.className = 'card' + (isUnclassified ? ' unclassified' : '');

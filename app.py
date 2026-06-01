@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, render_template
 import db
 import scraper
 import classifier
+import splitter
 from config import PORT, REMINDER_POLL_INTERVAL
 
 app = Flask(__name__)
@@ -23,6 +24,29 @@ def index():
 # Capture
 # ---------------------------------------------------------------------------
 
+def _process_one(raw_item):
+    """Classify and store a single item. Returns the saved card dict."""
+    url, topic_hint, _ = classifier.parse_input(raw_item)
+    scraped_text = scraper.scrape(url) if url else None
+
+    result = classifier.classify(
+        raw_input=raw_item,
+        scraped_text=scraped_text,
+        source_url=url,
+        topic_hint=topic_hint,
+    )
+
+    capture_id = db.insert_capture(
+        raw_input=raw_item,
+        content_type=result["type"],
+        confidence=result["confidence"],
+        rationale=result.get("rationale", ""),
+        metadata=result.get("metadata", {}),
+        tags=result.get("tags", []),
+    )
+    return db.get_capture(capture_id)
+
+
 @app.route("/api/capture", methods=["POST"])
 def capture():
     body = request.get_json(silent=True) or {}
@@ -31,33 +55,15 @@ def capture():
     if not raw:
         return jsonify({"error": "Empty input"}), 400
 
-    # Parse input pattern
-    url, topic_hint, _ = classifier.parse_input(raw)
+    items = splitter.split_items(raw)
 
-    scraped_text = None
-    source_url = url
+    if len(items) == 1:
+        card = _process_one(items[0])
+        return jsonify(card), 201
 
-    if url:
-        scraped_text = scraper.scrape(url)  # None on failure → fallback
-
-    result = classifier.classify(
-        raw_input=raw,
-        scraped_text=scraped_text,
-        source_url=source_url,
-        topic_hint=topic_hint,
-    )
-
-    capture_id = db.insert_capture(
-        raw_input=raw,
-        content_type=result["type"],
-        confidence=result["confidence"],
-        rationale=result.get("rationale", ""),
-        metadata=result.get("metadata", {}),
-        tags=result.get("tags", []),
-    )
-
-    card = db.get_capture(capture_id)
-    return jsonify(card), 201
+    # Multi-item: process each and return array
+    cards = [_process_one(item) for item in items]
+    return jsonify({"cards": cards, "count": len(cards)}), 201
 
 
 # ---------------------------------------------------------------------------

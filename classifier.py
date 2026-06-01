@@ -13,7 +13,7 @@ Content types:
 - reminder: A time-sensitive task, deadline, meeting, to-do, or action item
 - learning: Educational content to actively study — tutorials, how-to guides, documentation, courses, technical deep-dives
 - blog_post: Interesting content for reference — news, company updates, product launches, opinions, newsletters, Substack articles, industry analysis
-- general_note: Anything else worth capturing
+- general_note: Anything else worth capturing — casual thoughts, observations, WhatsApp-style short messages, things that don't fit other categories
 
 Distinction between learning and blog_post:
 - learning = you want to actively study and practice this (skill-building, documentation, tutorials)
@@ -24,6 +24,12 @@ Known projects for product_idea association: {known_projects}
 If a product idea clearly relates to one project → use that name. Otherwise → "New Idea".
 
 If a topic_hint is provided in the input, use it as the `topic` field for learning/blog_post types. Topic_hint takes priority over Claude-inferred topic. Capitalize the topic (e.g. "claude" → "Claude").
+
+IMPORTANT RULES:
+- NEVER return confidence below 0.72 for real text input. If you are uncertain between types, lean towards general_note.
+- Short casual messages (like WhatsApp texts), quick thoughts, or informal notes should be classified as general_note with confidence ≥ 0.80.
+- If the input is a URL you cannot evaluate, classify it as blog_post or learning based on the URL domain alone, confidence 0.72.
+- Only return confidence < 0.70 if the input is completely meaningless (random characters, empty-ish content).
 
 Return ONLY valid JSON:
 {{
@@ -52,10 +58,10 @@ blog_post:
 {{"title": "article title", "topic": "topic name (e.g. Swiggy, OpenAI, Stripe)", "url": "", "summary": "1-2 sentences on what's interesting", "source": "substack|company_blog|news|linkedin|other"}}
 
 general_note:
-{{"title": "short title", "summary": "1-2 sentences"}}
+{{"title": "short title (infer from content)", "summary": "1-2 sentences capturing the thought"}}
 
 Today: {today}
-Set confidence < 0.70 only when genuinely uncertain. Provide 2-4 relevant tags."""
+Provide 2-4 relevant tags."""
 
 
 def parse_input(raw):
