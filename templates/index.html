@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>CORTEX</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,75 +15,79 @@
       --text: #1a1a2e;
       --text2: #6b6b80;
       --accent: #6248d8;
-      --radius: 10px;
+      --radius: 12px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     body {
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 14px;
+      font-size: 15px;
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Layout ── */
     .app {
-      max-width: 760px;
+      max-width: 720px;
       margin: 0 auto;
-      padding: 24px 16px 80px;
+      padding: 16px 14px calc(32px + var(--safe-bottom));
     }
 
     /* ── Header ── */
     header {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 24px;
+      justify-content: space-between;
+      margin-bottom: 16px;
     }
     .logo {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 2px;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 3px;
       color: var(--accent);
     }
     .tagline {
       color: var(--text2);
       font-size: 12px;
+      margin-top: 2px;
     }
 
     /* ── Capture box ── */
     .capture-wrap {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: var(--radius);
       padding: 14px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
     .capture-hint {
       color: var(--text2);
-      font-size: 11px;
+      font-size: 12px;
       margin-bottom: 8px;
     }
     .capture-hint code {
       background: var(--surface2);
       padding: 1px 5px;
       border-radius: 4px;
-      font-size: 10px;
-      color: #aaa;
+      font-size: 11px;
+      color: #999;
     }
     #capture-box {
       width: 100%;
       background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      border-radius: 9px;
       color: var(--text);
-      font-size: 14px;
+      font-size: 15px;
       font-family: inherit;
-      padding: 10px 12px;
+      padding: 12px 14px;
       resize: none;
-      min-height: 80px;
+      min-height: 90px;
       outline: none;
       transition: border-color 0.15s;
+      -webkit-appearance: none;
     }
     #capture-box:focus { border-color: var(--accent); }
     #capture-box::placeholder { color: var(--text2); }
@@ -93,74 +97,90 @@
       align-items: center;
       justify-content: space-between;
       margin-top: 10px;
+      gap: 10px;
     }
     .capture-tip {
       color: var(--text2);
-      font-size: 11px;
+      font-size: 12px;
+      flex-shrink: 0;
     }
     #capture-btn {
       background: var(--accent);
       color: #fff;
       border: none;
-      border-radius: 7px;
-      padding: 8px 20px;
-      font-size: 13px;
-      font-weight: 600;
+      border-radius: 9px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 700;
       cursor: pointer;
       transition: opacity 0.15s;
+      min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
     }
-    #capture-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    #capture-btn:hover:not(:disabled) { opacity: 0.88; }
+    #capture-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    #capture-btn:active:not(:disabled) { opacity: 0.75; }
 
     .capture-status {
       font-size: 12px;
       color: var(--text2);
       min-height: 18px;
-      margin-top: 6px;
+      margin-top: 7px;
     }
-    .capture-status.error { color: #e05c5c; }
-    .capture-status.ok { color: #5cb870; }
+    .capture-status.error { color: #d94f4f; }
+    .capture-status.ok { color: #2e8f57; }
 
     /* ── Tabs ── */
     .tabs {
       display: flex;
-      gap: 4px;
-      margin-bottom: 16px;
+      gap: 6px;
+      margin-bottom: 14px;
       overflow-x: auto;
-      padding-bottom: 2px;
+      padding-bottom: 4px;
       scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
     }
     .tabs::-webkit-scrollbar { display: none; }
 
     .tab {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 5px 14px;
-      font-size: 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 22px;
+      padding: 7px 14px;
+      font-size: 13px;
       font-weight: 500;
       color: var(--text2);
       cursor: pointer;
       white-space: nowrap;
-      transition: background 0.12s, color 0.12s;
-      position: relative;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      -webkit-tap-highlight-color: transparent;
     }
-    .tab:hover { color: var(--text); }
+    .tab:active { opacity: 0.75; }
     .tab.active {
       background: var(--accent);
       border-color: var(--accent);
       color: #fff;
     }
-    .tab .badge {
-      display: inline-block;
-      background: #e05c5c;
-      color: #fff;
-      border-radius: 8px;
-      font-size: 9px;
+    .tab .count {
+      font-size: 11px;
       font-weight: 700;
-      padding: 1px 5px;
-      margin-left: 4px;
-      vertical-align: middle;
+      opacity: 0.72;
+    }
+    .tab.active .count { opacity: 0.85; }
+    .tab .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #d94f4f;
+      color: #fff;
+      border-radius: 9px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      min-width: 18px;
     }
 
     /* ── Feed ── */
@@ -170,9 +190,7 @@
       gap: 10px;
     }
 
-    .topic-group {
-      margin-bottom: 8px;
-    }
+    .topic-group { margin-bottom: 10px; }
     .topic-header {
       font-size: 11px;
       font-weight: 700;
@@ -192,49 +210,73 @@
     /* ── Card ── */
     .card {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: var(--radius);
-      padding: 12px 14px;
+      padding: 13px 14px;
       display: flex;
+      flex-wrap: wrap;
       align-items: flex-start;
-      gap: 12px;
-      animation: fadeIn 0.2s ease;
+      gap: 10px;
+      animation: fadeIn 0.18s ease;
     }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to   { opacity: 1; transform: none; }
+    }
 
     .card-icon {
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: 17px;
       flex-shrink: 0;
     }
 
-    .card-body { flex: 1; min-width: 0; }
+    .card-body {
+      flex: 1;
+      min-width: 0;
+    }
 
-    .card-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-bottom: 3px;
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .conf-pip {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .conf-pct {
+      font-size: 11px;
+      color: var(--text2);
     }
 
     .card-title {
       font-size: 14px;
       font-weight: 600;
       color: var(--text);
-      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-bottom: 2px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      margin-bottom: 3px;
     }
 
     .card-subtitle {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text2);
       white-space: nowrap;
       overflow: hidden;
@@ -250,70 +292,64 @@
     .tag {
       background: var(--surface2);
       border: 1px solid var(--border);
-      border-radius: 4px;
-      font-size: 10px;
+      border-radius: 5px;
+      font-size: 11px;
       color: var(--text2);
-      padding: 1px 6px;
+      padding: 2px 7px;
     }
 
+    .card-time {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 5px;
+    }
+
+    /* Actions — full width below card body on all screens */
     .card-actions {
+      width: 100%;
       display: flex;
-      flex-direction: column;
-      gap: 5px;
-      flex-shrink: 0;
+      flex-direction: row;
+      gap: 7px;
+      padding-left: 46px; /* align with card body (36px icon + 10px gap) */
+      flex-wrap: wrap;
     }
     .action-btn {
       background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
       color: var(--text2);
-      font-size: 11px;
-      padding: 4px 9px;
+      font-size: 13px;
+      padding: 7px 14px;
       cursor: pointer;
       white-space: nowrap;
-      transition: color 0.12s, background 0.12s;
+      min-height: 36px;
+      font-weight: 500;
+      transition: background 0.12s, color 0.12s;
+      -webkit-tap-highlight-color: transparent;
     }
-    .action-btn:hover { background: var(--border); color: var(--text); }
+    .action-btn:active { opacity: 0.7; }
     .action-btn.open { color: var(--accent); border-color: var(--accent); }
-    .action-btn.complete { color: #2e8b57; border-color: #2e8b57; }
-    .action-btn.archive { color: var(--text2); }
+    .action-btn.complete { color: #2a7a50; border-color: #2a7a50; }
 
-    .card-time {
-      font-size: 10px;
-      color: var(--text2);
-      margin-top: 4px;
-    }
-
-    /* unclassified card */
+    /* Unclassified */
     .card.unclassified {
       border-style: dashed;
-      border-color: #b0b0c0;
+      border-color: #c0c0cc;
     }
 
-    /* empty state */
+    /* States */
     .empty {
       text-align: center;
       color: var(--text2);
-      padding: 48px 20px;
-      font-size: 13px;
+      padding: 56px 20px;
+      font-size: 14px;
+      line-height: 1.6;
     }
-
-    /* loading */
     .loading {
       text-align: center;
       color: var(--text2);
-      padding: 24px;
-      font-size: 13px;
-    }
-
-    /* confidence pip */
-    .conf-pip {
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      margin-right: 4px;
-      vertical-align: middle;
+      padding: 32px;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -354,7 +390,7 @@
   </div>
 
   <!-- Feed -->
-  <div id="feed"><div class="loading">Loading...</div></div>
+  <div id="feed"><div class="loading">Loading…</div></div>
 
 </div>
 
@@ -381,7 +417,7 @@
   async function doCapture() {
     const text = $('capture-box').value.trim();
     if (!text) return;
-    setStatus('Corty is classifying...', '');
+    setStatus('Corty is classifying…', '');
     $('capture-btn').disabled = true;
 
     try {
@@ -399,8 +435,8 @@
 
       const result = await res.json();
       $('capture-box').value = '';
+      $('capture-box').blur(); // dismiss keyboard on mobile
 
-      // Handle both single card (has .type) and multi-card (has .cards)
       const cards = result.cards || [result];
       const count = cards.length;
 
@@ -414,13 +450,11 @@
       }
 
       cards.forEach(card => {
-        if (!activeType || activeType === card.type) {
-          prependCard(card);
-        }
+        if (!activeType || activeType === card.type) prependCard(card);
       });
 
-      updateReminderBadge();
-    } catch (err) {
+      refreshCounts();
+    } catch(e) {
       setStatus('Network error — try again', 'error');
     } finally {
       $('capture-btn').disabled = false;
@@ -435,26 +469,25 @@
 
   // ── Feed ──
   async function loadFeed() {
-    $('feed').innerHTML = '<div class="loading">Loading...</div>';
+    $('feed').innerHTML = '<div class="loading">Loading…</div>';
     const url = '/api/feed' + (activeType ? '?type=' + activeType : '');
     try {
       const data = await fetch(url).then(r => r.json());
       updateReminderBadgeFrom(data.reminder_badge);
-
       $('feed').innerHTML = '';
       if (data.grouped) {
         renderGrouped(data.groups);
       } else {
         renderFlat(data.cards);
       }
-    } catch {
-      $('feed').innerHTML = '<div class="empty">Failed to load. Refresh to try again.</div>';
+    } catch(e) {
+      $('feed').innerHTML = '<div class="empty">Failed to load.<br>Check your connection and refresh.</div>';
     }
   }
 
   function renderFlat(cards) {
     if (!cards || !cards.length) {
-      $('feed').innerHTML = '<div class="empty">Nothing here yet. Paste something above.</div>';
+      $('feed').innerHTML = '<div class="empty">Nothing here yet.<br>Paste something above to get started.</div>';
       return;
     }
     cards.forEach(c => $('feed').appendChild(makeCard(c)));
@@ -462,13 +495,13 @@
 
   function renderGrouped(groups) {
     if (!groups || !groups.length) {
-      $('feed').innerHTML = '<div class="empty">Nothing here yet. Paste a URL with a keyword above.</div>';
+      $('feed').innerHTML = '<div class="empty">Nothing here yet.<br>Paste a URL with a keyword above.</div>';
       return;
     }
     groups.forEach(g => {
       const div = document.createElement('div');
       div.className = 'topic-group';
-      div.innerHTML = `<div class="topic-header">${esc(g.topic)} <span style="color:var(--text2);font-weight:400">(${g.cards.length})</span></div>`;
+      div.innerHTML = `<div class="topic-header">${esc(g.topic)} <span style="font-weight:400">(${g.cards.length})</span></div>`;
       const inner = document.createElement('div');
       inner.className = 'topic-cards';
       g.cards.forEach(c => inner.appendChild(makeCard(c)));
@@ -481,15 +514,14 @@
     const feed = $('feed');
     const empty = feed.querySelector('.empty');
     if (empty) empty.remove();
-
-    const el = makeCard(card);
-    feed.insertBefore(el, feed.firstChild);
+    feed.insertBefore(makeCard(card), feed.firstChild);
   }
 
   function makeCard(card) {
     const d = card.display;
     const isUnclassified = card.type === 'unclassified';
-    const confColor = card.confidence >= 0.85 ? '#2e8b57' : card.confidence >= 0.70 ? '#c07a20' : '#c0392b';
+    const confPct = Math.round((card.confidence || 0) * 100);
+    const confColor = confPct >= 85 ? '#2a7a50' : confPct >= 70 ? '#b86c0e' : '#c0392b';
 
     const el = document.createElement('div');
     el.className = 'card' + (isUnclassified ? ' unclassified' : '');
@@ -505,13 +537,15 @@
     const body = document.createElement('div');
     body.className = 'card-body';
 
-    const label = `<span class="card-label" style="color:${d.color}">${esc(d.label)}</span>`;
-    const conf = `<span class="conf-pip" style="background:${confColor}"></span><span style="font-size:10px;color:var(--text2)">${Math.round(card.confidence * 100)}%</span>`;
-    body.innerHTML = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${label}${conf}</div>`;
+    const meta = document.createElement('div');
+    meta.className = 'card-meta';
+    meta.innerHTML = `<span class="card-label" style="color:${d.color}">${esc(d.label)}</span>
+      <span class="conf-pip" style="background:${confColor}"></span>
+      <span class="conf-pct">${confPct}%</span>`;
+    body.appendChild(meta);
 
     const title = document.createElement('div');
     title.className = 'card-title';
-    title.title = d.title;
     title.textContent = d.title;
     body.appendChild(title);
 
@@ -523,15 +557,15 @@
     }
 
     if (card.tags && card.tags.length) {
-      const tags = document.createElement('div');
-      tags.className = 'card-tags';
+      const tagsEl = document.createElement('div');
+      tagsEl.className = 'card-tags';
       card.tags.slice(0, 4).forEach(t => {
         const span = document.createElement('span');
         span.className = 'tag';
         span.textContent = t;
-        tags.appendChild(span);
+        tagsEl.appendChild(span);
       });
-      body.appendChild(tags);
+      body.appendChild(tagsEl);
     }
 
     const time = document.createElement('div');
@@ -539,17 +573,16 @@
     time.textContent = formatTime(card.created_at);
     body.appendChild(time);
 
-    // Actions
+    // Actions — rendered below body (full width row)
     const actions = document.createElement('div');
     actions.className = 'card-actions';
-
     (d.actions || []).forEach(action => {
       const btn = document.createElement('button');
       btn.className = 'action-btn ' + action;
       if (action === 'open_url') {
         btn.textContent = '↗ Open';
         btn.addEventListener('click', () => {
-          const url = card.metadata.url;
+          const url = card.metadata && card.metadata.url;
           if (url) window.open(url, '_blank');
         });
       } else if (action === 'complete') {
@@ -564,7 +597,7 @@
 
     el.appendChild(iconEl);
     el.appendChild(body);
-    el.appendChild(actions);
+    if ((d.actions || []).length) el.appendChild(actions);
     return el;
   }
 
@@ -573,7 +606,7 @@
     el.style.opacity = '0';
     el.style.transition = 'opacity 0.2s';
     setTimeout(() => el.remove(), 200);
-    updateReminderBadge();
+    refreshCounts();
   }
 
   async function completeCard(id, el) {
@@ -582,6 +615,29 @@
     el.style.transition = 'opacity 0.2s';
     setTimeout(() => el.remove(), 200);
     updateReminderBadgeFrom(data.reminder_badge);
+    refreshCounts();
+  }
+
+  // ── Tab counts ──
+  async function refreshCounts() {
+    try {
+      const counts = await fetch('/api/counts').then(r => r.json());
+      document.querySelectorAll('.tab[data-type]').forEach(tab => {
+        const type = tab.dataset.type;
+        if (!type) return; // "All" tab
+        // Remove old count span if exists
+        const old = tab.querySelector('.count');
+        if (old) old.remove();
+        const n = counts[type] || 0;
+        if (n > 0) {
+          const span = document.createElement('span');
+          span.className = 'count';
+          span.textContent = n;
+          tab.appendChild(span);
+        }
+      });
+      updateReminderBadgeFrom(counts['reminder'] || 0);
+    } catch(e) { /* silent */ }
   }
 
   async function updateReminderBadge() {
@@ -614,12 +670,10 @@
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // ── Badge poll ──
-  setInterval(updateReminderBadge, 60000);
-
   // ── Init ──
   loadFeed();
-  updateReminderBadge();
+  refreshCounts();
+  setInterval(refreshCounts, 60000);
 </script>
 </body>
 </html>

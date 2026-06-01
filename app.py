@@ -130,4 +130,13 @@ threading.Thread(target=_reminder_poll, daemon=True).start()
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(port=PORT, debug=False)
+    import socket
+    hostname = socket.gethostname()
+    try:
+        local_ip = socket.gethostbyname(hostname)
+    except Exception:
+        local_ip = "unknown"
+    print(f"\n  CORTEX running at:")
+    print(f"    Local:   http://localhost:{PORT}")
+    print(f"    Network: http://{local_ip}:{PORT}  ← open this on your phone\n")
+    app.run(host="0.0.0.0", port=PORT, debug=False)
