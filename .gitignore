@@ -1,0 +1,8 @@
+.env
+data/cortex.db
+data/cortex.db-shm
+data/cortex.db-wal
+__pycache__/
+*.pyc
+.DS_Store
+venv/

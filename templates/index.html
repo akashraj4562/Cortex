@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CORTEX</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f11;
+      --surface: #1a1a1f;
+      --surface2: #222228;
+      --border: #2e2e38;
+      --text: #e8e8f0;
+      --text2: #9090a8;
+      --accent: #7B61FF;
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .app {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 24px 16px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--accent);
+    }
+    .tagline {
+      color: var(--text2);
+      font-size: 12px;
+    }
+
+    /* ── Capture box ── */
+    .capture-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+    .capture-hint {
+      color: var(--text2);
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+    .capture-hint code {
+      background: var(--surface2);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+      color: #aaa;
+    }
+    #capture-box {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      padding: 10px 12px;
+      resize: none;
+      min-height: 80px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    #capture-box:focus { border-color: var(--accent); }
+    #capture-box::placeholder { color: var(--text2); }
+
+    .capture-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    .capture-tip {
+      color: var(--text2);
+      font-size: 11px;
+    }
+    #capture-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    #capture-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #capture-btn:hover:not(:disabled) { opacity: 0.88; }
+
+    .capture-status {
+      font-size: 12px;
+      color: var(--text2);
+      min-height: 18px;
+      margin-top: 6px;
+    }
+    .capture-status.error { color: #e05c5c; }
+    .capture-status.ok { color: #5cb870; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text2);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s, color 0.12s;
+      position: relative;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .tab .badge {
+      display: inline-block;
+      background: #e05c5c;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    /* ── Feed ── */
+    #feed {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .topic-group {
+      margin-bottom: 8px;
+    }
+    .topic-header {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text2);
+      padding: 6px 4px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .topic-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+    .card-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .card-body { flex: 1; min-width: 0; }
+
+    .card-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .tag {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--text2);
+      padding: 1px 6px;
+    }
+
+    .card-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .action-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text2);
+      font-size: 11px;
+      padding: 4px 9px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.12s, background 0.12s;
+    }
+    .action-btn:hover { background: var(--border); color: var(--text); }
+    .action-btn.open { color: var(--accent); border-color: var(--accent); }
+    .action-btn.complete { color: #5cb870; border-color: #5cb870; }
+    .action-btn.archive { color: #9090a8; }
+
+    .card-time {
+      font-size: 10px;
+      color: var(--text2);
+      margin-top: 4px;
+    }
+
+    /* unclassified card */
+    .card.unclassified {
+      border-style: dashed;
+      border-color: #444;
+    }
+
+    /* empty state */
+    .empty {
+      text-align: center;
+      color: var(--text2);
+      padding: 48px 20px;
+      font-size: 13px;
+    }
+
+    /* loading */
+    .loading {
+      text-align: center;
+      color: var(--text2);
+      padding: 24px;
+      font-size: 13px;
+    }
+
+    /* confidence pip */
+    .conf-pip {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div>
+      <div class="logo">CORTEX</div>
+      <div class="tagline">Capture everything. Corty classifies.</div>
+    </div>
+  </header>
+
+  <!-- Capture box -->
+  <div class="capture-wrap">
+    <div class="capture-hint">
+      Paste a URL, a <code>URL keyword</code>, or any text. Corty handles the rest.
+    </div>
+    <textarea id="capture-box" placeholder="https://linkedin.com/jobs/123 — or — 'Remind me to call Vikas Thursday 4pm' — or — 'https://substack.com/p/... AI'"></textarea>
+    <div class="capture-footer">
+      <span class="capture-tip">⌘ + Enter to capture</span>
+      <button id="capture-btn">Capture</button>
+    </div>
+    <div class="capture-status" id="capture-status"></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-type="">All</button>
+    <button class="tab" data-type="job_post">💼 Jobs</button>
+    <button class="tab" data-type="product_idea">💡 Ideas</button>
+    <button class="tab" data-type="reminder">⏰ Reminders <span class="badge" id="reminder-badge" style="display:none"></span></button>
+    <button class="tab" data-type="learning">🧠 Learnings</button>
+    <button class="tab" data-type="blog_post">📰 Blogs</button>
+    <button class="tab" data-type="general_note">📝 Notes</button>
+  </div>
+
+  <!-- Feed -->
+  <div id="feed"><div class="loading">Loading...</div></div>
+
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let activeType = '';
+
+  // ── Tab switching ──
+  $('tabs').addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    activeType = tab.dataset.type;
+    loadFeed();
+  });
+
+  // ── Capture ──
+  $('capture-btn').addEventListener('click', doCapture);
+  $('capture-box').addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') doCapture();
+  });
+
+  async function doCapture() {
+    const text = $('capture-box').value.trim();
+    if (!text) return;
+    setStatus('Corty is classifying...', '');
+    $('capture-btn').disabled = true;
+
+    try {
+      const res = await fetch('/api/capture', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text}),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setStatus(err.error || 'Something went wrong', 'error');
+        return;
+      }
+
+      const card = await res.json();
+      $('capture-box').value = '';
+      setStatus(`✓ Captured as ${card.display.label}${card.metadata.topic ? ' · ' + card.metadata.topic : ''}`, 'ok');
+
+      // If viewing the same type (or All), prepend card
+      if (!activeType || activeType === card.type) {
+        prependCard(card);
+      }
+
+      updateReminderBadge();
+    } catch (err) {
+      setStatus('Network error — try again', 'error');
+    } finally {
+      $('capture-btn').disabled = false;
+    }
+  }
+
+  function setStatus(msg, cls) {
+    const el = $('capture-status');
+    el.textContent = msg;
+    el.className = 'capture-status' + (cls ? ' ' + cls : '');
+  }
+
+  // ── Feed ──
+  async function loadFeed() {
+    $('feed').innerHTML = '<div class="loading">Loading...</div>';
+    const url = '/api/feed' + (activeType ? '?type=' + activeType : '');
+    try {
+      const data = await fetch(url).then(r => r.json());
+      updateReminderBadgeFrom(data.reminder_badge);
+
+      $('feed').innerHTML = '';
+      if (data.grouped) {
+        renderGrouped(data.groups);
+      } else {
+        renderFlat(data.cards);
+      }
+    } catch {
+      $('feed').innerHTML = '<div class="empty">Failed to load. Refresh to try again.</div>';
+    }
+  }
+
+  function renderFlat(cards) {
+    if (!cards || !cards.length) {
+      $('feed').innerHTML = '<div class="empty">Nothing here yet. Paste something above.</div>';
+      return;
+    }
+    cards.forEach(c => $('feed').appendChild(makeCard(c)));
+  }
+
+  function renderGrouped(groups) {
+    if (!groups || !groups.length) {
+      $('feed').innerHTML = '<div class="empty">Nothing here yet. Paste a URL with a keyword above.</div>';
+      return;
+    }
+    groups.forEach(g => {
+      const div = document.createElement('div');
+      div.className = 'topic-group';
+      div.innerHTML = `<div class="topic-header">${esc(g.topic)} <span style="color:#555;font-weight:400">(${g.cards.length})</span></div>`;
+      const inner = document.createElement('div');
+      inner.className = 'topic-cards';
+      g.cards.forEach(c => inner.appendChild(makeCard(c)));
+      div.appendChild(inner);
+      $('feed').appendChild(div);
+    });
+  }
+
+  function prependCard(card) {
+    const feed = $('feed');
+    const empty = feed.querySelector('.empty');
+    if (empty) empty.remove();
+
+    const el = makeCard(card);
+    feed.insertBefore(el, feed.firstChild);
+  }
+
+  function makeCard(card) {
+    const d = card.display;
+    const isUnclassified = card.type === 'unclassified';
+    const confColor = card.confidence >= 0.85 ? '#5cb870' : card.confidence >= 0.70 ? '#e8b34a' : '#e05c5c';
+
+    const el = document.createElement('div');
+    el.className = 'card' + (isUnclassified ? ' unclassified' : '');
+    el.dataset.id = card.id;
+
+    // Icon
+    const iconEl = document.createElement('div');
+    iconEl.className = 'card-icon';
+    iconEl.style.background = d.color + '22';
+    iconEl.textContent = d.icon;
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    const label = `<span class="card-label" style="color:${d.color}">${esc(d.label)}</span>`;
+    const conf = `<span class="conf-pip" style="background:${confColor}"></span><span style="font-size:10px;color:var(--text2)">${Math.round(card.confidence * 100)}%</span>`;
+    body.innerHTML = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${label}${conf}</div>`;
+
+    const title = document.createElement('div');
+    title.className = 'card-title';
+    title.title = d.title;
+    title.textContent = d.title;
+    body.appendChild(title);
+
+    if (d.subtitle) {
+      const sub = document.createElement('div');
+      sub.className = 'card-subtitle';
+      sub.textContent = d.subtitle;
+      body.appendChild(sub);
+    }
+
+    if (card.tags && card.tags.length) {
+      const tags = document.createElement('div');
+      tags.className = 'card-tags';
+      card.tags.slice(0, 4).forEach(t => {
+        const span = document.createElement('span');
+        span.className = 'tag';
+        span.textContent = t;
+        tags.appendChild(span);
+      });
+      body.appendChild(tags);
+    }
+
+    const time = document.createElement('div');
+    time.className = 'card-time';
+    time.textContent = formatTime(card.created_at);
+    body.appendChild(time);
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'card-actions';
+
+    (d.actions || []).forEach(action => {
+      const btn = document.createElement('button');
+      btn.className = 'action-btn ' + action;
+      if (action === 'open_url') {
+        btn.textContent = '↗ Open';
+        btn.addEventListener('click', () => {
+          const url = card.metadata.url;
+          if (url) window.open(url, '_blank');
+        });
+      } else if (action === 'complete') {
+        btn.textContent = '✓ Done';
+        btn.addEventListener('click', () => completeCard(card.id, el));
+      } else if (action === 'archive') {
+        btn.textContent = '× Archive';
+        btn.addEventListener('click', () => archiveCard(card.id, el));
+      }
+      actions.appendChild(btn);
+    });
+
+    el.appendChild(iconEl);
+    el.appendChild(body);
+    el.appendChild(actions);
+    return el;
+  }
+
+  async function archiveCard(id, el) {
+    await fetch(`/api/capture/${id}/archive`, {method: 'POST'});
+    el.style.opacity = '0';
+    el.style.transition = 'opacity 0.2s';
+    setTimeout(() => el.remove(), 200);
+    updateReminderBadge();
+  }
+
+  async function completeCard(id, el) {
+    const data = await fetch(`/api/capture/${id}/complete`, {method: 'POST'}).then(r => r.json());
+    el.style.opacity = '0';
+    el.style.transition = 'opacity 0.2s';
+    setTimeout(() => el.remove(), 200);
+    updateReminderBadgeFrom(data.reminder_badge);
+  }
+
+  async function updateReminderBadge() {
+    const data = await fetch('/api/badge').then(r => r.json()).catch(() => ({}));
+    updateReminderBadgeFrom(data.reminder_badge || 0);
+  }
+
+  function updateReminderBadgeFrom(n) {
+    const badge = $('reminder-badge');
+    if (n > 0) {
+      badge.textContent = n;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function formatTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts.replace(' ', 'T') + 'Z');
+    const now = new Date();
+    const diff = Math.floor((now - d) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Badge poll ──
+  setInterval(updateReminderBadge, 60000);
+
+  // ── Init ──
+  loadFeed();
+  updateReminderBadge();
+</script>
+</body>
+</html>
