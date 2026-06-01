@@ -26,7 +26,7 @@ def index():
 
 def _process_one(raw_item):
     """Classify and store a single item. Returns the saved card dict."""
-    url, topic_hint, _ = classifier.parse_input(raw_item)
+    url, topic_hint, explicit_type = classifier.parse_input(raw_item)
     scraped_text = scraper.scrape(url) if url else None
 
     result = classifier.classify(
@@ -34,6 +34,7 @@ def _process_one(raw_item):
         scraped_text=scraped_text,
         source_url=url,
         topic_hint=topic_hint,
+        explicit_type=explicit_type,
     )
 
     capture_id = db.insert_capture(

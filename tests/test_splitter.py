@@ -5,8 +5,24 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import unittest
 from splitter import split_items
 
+# Exact paste from user (iOS WhatsApp format with time-first timestamps)
+REAL_WHATSAPP_PASTE = (
+    "[1:11 PM, 5/31/2026] Akash Raj: https://www.linkedin.com/posts/jeevanshu-narang_few-months-ago "
+    "\n\nSwiggy\n"
+    "[1:39 PM, 5/31/2026] Akash Raj: https://www.linkedin.com/posts/activity-1234 "
+    "\n\nImprove Google map\n"
+    "[4:46 PM, 5/31/2026] Akash Raj: https://www.linkedin.com/posts/siddharthadhar_lead "
+    "\n\nJob\n"
+    "[8:06 AM, 6/1/2026] Akash Raj: https://www.linkedin.com/posts/ritu-mishra_product "
+    "\n\nJob\n"
+    "[8:06 AM, 6/1/2026] Akash Raj: https://www.linkedin.com/posts/eordax_ai "
+    "\n\nClaude"
+)
+
 
 class TestSplitter(unittest.TestCase):
+
+    # ── Core cases ──
 
     def test_single_text_unchanged(self):
         items = split_items("Remind me to call Vikas Thursday")
@@ -17,8 +33,7 @@ class TestSplitter(unittest.TestCase):
         items = split_items("https://example.com/article")
         self.assertEqual(len(items), 1)
 
-    def test_url_plus_keyword_unchanged(self):
-        # URL + keyword is a single item (not multi)
+    def test_url_plus_inline_keyword_unchanged(self):
         items = split_items("https://example.com/article Claude")
         self.assertEqual(len(items), 1)
 
@@ -32,7 +47,9 @@ class TestSplitter(unittest.TestCase):
         items = split_items(blob)
         self.assertEqual(len(items), 3)
 
-    def test_whatsapp_timestamp_splits(self):
+    # ── WhatsApp global format [DD/MM/YYYY, HH:MM AM/PM] ──
+
+    def test_whatsapp_global_format_splits(self):
         blob = (
             "[01/06/2026, 10:30 AM] Akash: https://techcrunch.com/ai\n"
             "[01/06/2026, 10:31 AM] Akash: Payments article interesting\n"
@@ -41,13 +58,56 @@ class TestSplitter(unittest.TestCase):
         items = split_items(blob)
         self.assertGreaterEqual(len(items), 2)
 
-    def test_whatsapp_short_format(self):
+    def test_whatsapp_global_short_year(self):
         blob = (
             "[1/6/26, 10:30 AM] Me: check this out https://url.com\n"
             "[1/6/26, 10:31 AM] Me: also this one https://url2.com"
         )
         items = split_items(blob)
         self.assertGreaterEqual(len(items), 2)
+
+    # ── WhatsApp iOS format [H:MM AM/PM, M/DD/YYYY] ──
+
+    def test_whatsapp_ios_format_splits(self):
+        """iOS WhatsApp format: time first, then date."""
+        blob = (
+            "[1:11 PM, 5/31/2026] Akash Raj: https://linkedin.com/posts/abc \n\nSwiggy\n"
+            "[1:39 PM, 5/31/2026] Akash Raj: https://linkedin.com/posts/def \n\nJob\n"
+        )
+        items = split_items(blob)
+        self.assertEqual(len(items), 2)
+
+    def test_whatsapp_ios_format_five_messages(self):
+        """Real paste from user — 5 LinkedIn URLs with iOS timestamps."""
+        items = split_items(REAL_WHATSAPP_PASTE)
+        self.assertEqual(len(items), 5)
+
+    def test_whatsapp_ios_url_keyword_preserved_in_item(self):
+        """Each item should contain both the URL and the keyword."""
+        items = split_items(REAL_WHATSAPP_PASTE)
+        # Item 1 should contain the Swiggy URL and keyword
+        self.assertTrue(any("jeevanshu" in i for i in items))
+        self.assertTrue(any("Swiggy" in i for i in items))
+        # They should be in the SAME item
+        swiggy_item = next((i for i in items if "jeevanshu" in i), None)
+        self.assertIsNotNone(swiggy_item)
+        self.assertIn("Swiggy", swiggy_item)
+
+    def test_whatsapp_ios_job_keyword_in_item(self):
+        """Job keyword should be in same item as the job URL."""
+        items = split_items(REAL_WHATSAPP_PASTE)
+        job_items = [i for i in items if "siddharthadhar" in i or "ritu-mishra" in i]
+        for item in job_items:
+            self.assertIn("Job", item)
+
+    def test_whatsapp_ios_claude_keyword_in_item(self):
+        """Claude keyword should be in same item as the Claude URL."""
+        items = split_items(REAL_WHATSAPP_PASTE)
+        claude_item = next((i for i in items if "eordax" in i), None)
+        self.assertIsNotNone(claude_item)
+        self.assertIn("Claude", claude_item)
+
+    # ── Other formats ──
 
     def test_multiple_bare_urls_on_lines(self):
         blob = "https://url1.com\nhttps://url2.com\nhttps://url3.com"
