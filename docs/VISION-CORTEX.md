@@ -1,9 +1,10 @@
 # CORTEX — Product Vision Document
 
-**Version:** 2.0  
+**Version:** 2.1  
 **Date:** 2026-06-01  
 **Author:** Akash Raj  
 **Status:** Living Document  
+**Changelog v2.1:** Added CORTEX as Public Platform section (GitHub analogy, HR manager use case, CORTEX Recruiter revenue tier). Expanded Vector H (Intent Profile) with public profile layer and HR buyer persona. Updated moat with Public Profile Depth and Recruiter Network Effect. Added P7 (Public Platform) to phases table. Added 10-year success horizon.  
 **Changelog v2.0:** Added communal boards, intent profiling, ambient capture, Slack integration, and pre-meeting ideation. Expanded the causal chain. Added three new expansion vectors (G, H, I). Added Surface Area model. Updated moat and phase table.
 
 ---
@@ -192,6 +193,25 @@ A CV tells you where someone has been. The Expertise Graph tells you what they k
 **Privacy architecture (non-negotiable):**
 The Intent Profile is built locally. It never leaves CORTEX without explicit, opt-in, user-controlled sharing. No profiling without consent. No employer access without explicit sharing. The user controls what is visible, to whom, and for how long.
 
+**The Public Profile Layer:**
+When CORTEX becomes a public platform — like GitHub or LinkedIn — users can opt in to making their Intent Profile public. What this produces is unlike anything that exists today:
+
+| Platform | What it shows | Problem |
+|---|---|---|
+| **LinkedIn** | Where you worked, what you claim | Stated preference; easily gamed; static |
+| **GitHub** | What you actually built (code) | Only works for engineers; not applicable to PMs, designers, strategists |
+| **CORTEX** | What you actually learned and intended | Revealed preference; behavioral; dynamic; applicable to every knowledge worker |
+
+A PM's CORTEX public profile doesn't say "5 years in product." It says: "Has been paying close attention to on-demand logistics for 14 months. Has captured 43 learning items tagged 'pricing strategy.' Has 12 product ideas in the supply chain space. Has actively been closing a gap in SQL proficiency over the last 8 months." That is a fundamentally different hiring signal.
+
+**The HR Manager use case:**
+When CORTEX is public, HR managers and talent acquisition teams gain a new kind of search: not "find me PMs with 5 years of fintech experience" (LinkedIn) but "find me someone who has been genuinely, demonstrably paying attention to fintech for the last 2 years and is actively learning towards it." The intent profile is the signal. The corpus is the proof.
+
+This is the commercial anchor of CORTEX at scale. LinkedIn Recruiter generates ~$4B/year by selling access to stated credentials. CORTEX Recruiter would sell access to revealed credentials — a categorically stronger signal for a market that is deeply tired of CV inflation, keyword stuffing, and endorsed skills no one actually has.
+
+**Privacy architecture (non-negotiable):**
+The Intent Profile is private by default. It never goes public without explicit user action. Public profiles show only what the user has chosen to surface — specific domains, specific skills, specific time ranges. The underlying raw corpus (the actual captures) is never exposed. Only the pattern — the attention graph and intent trajectory — is surfaced. The user controls the resolution.
+
 **The unlock:** The gap between stated preference (LinkedIn profile, CV) and revealed preference (attention + intent) is where trust collapses in professional contexts. The Intent Profile closes that gap — for the first time, with proof.
 
 ---
@@ -238,6 +258,51 @@ CORTEX exposes a capture API. Any application can push an intent or capture to C
 
 ---
 
+## CORTEX as Public Platform — The GitHub Moment
+
+At the personal level, CORTEX is a private tool. At the public level — when users opt in — it becomes professional infrastructure. This is the GitHub moment for knowledge workers.
+
+**The analogy:**
+
+GitHub launched as a code hosting tool. It became a professional identity platform — your GitHub profile is now more credible to a hiring engineer than your CV. Not because GitHub designed it that way, but because the corpus of actual work became the most honest signal of capability. Senior engineers stopped updating their résumés. Their GitHub profile said it all.
+
+CORTEX follows the same arc — for every knowledge worker, not just engineers:
+- A product manager's CORTEX profile shows their genuine learning trajectory, their attention patterns, their product ideas, their intent gaps
+- A designer's CORTEX profile shows the inspiration they've absorbed, the UX problems they've been thinking about, the craft they've been developing
+- A strategist's profile shows the market signals they've been tracking, the frameworks they've been internalizing, the decisions they've been studying
+
+**What the HR manager sees:**
+
+Today, hiring a senior PM involves: a CV (stated), a LinkedIn (stated + endorsed), a portfolio (curated, may not be current), interviews (performs under pressure, may not reflect day-to-day thinking).
+
+With a public CORTEX profile, a hiring manager sees:
+- *Domain attention:* "This candidate has been paying attention to payments infrastructure for 22 months — not as a job title, but as sustained curiosity and learning."
+- *Intent trajectory:* "They have 8 product ideas in the B2B SaaS space in the last quarter. They're actively building toward this."
+- *Skill gap closures:* "They identified a gap in financial modeling 6 months ago and have been systematically capturing learning content in that area since."
+- *Depth vs. breadth:* "Are they a specialist (deep attention in one domain) or a generalist (broad but consistent attention across many)?"
+
+None of this is self-reported. All of it is earned through behavior — one capture at a time, when no one was watching.
+
+**The revenue architecture:**
+
+| Tier | User | What they get | Revenue model |
+|---|---|---|---|
+| **Personal (Free)** | Individual user | Private corpus, personal classification, 8-tab feed | Free — builds the corpus |
+| **Pro** | Power user | Public profile (opt-in), ambient capture (Slack, Gmail, browser), Thinking Mirror | Subscription |
+| **Team** | Small teams (2–20) | Communal boards, pre-meeting ideation, overlap detection | Per-seat subscription |
+| **Enterprise** | Orgs (50+ users) | Org memory, decision provenance, role-aware synthesis, admin controls | Enterprise contract |
+| **CORTEX Recruiter** | HR managers & talent teams | Search public Intent Profiles by attention domain, intent trajectory, skill gap closures | Seat-based access (like LinkedIn Recruiter) |
+
+The Recruiter tier is the highest-value monetisation layer. A company paying $10,000/year for LinkedIn Recruiter access to stated credentials will pay the same — or more — for access to revealed credentials that are demonstrably harder to fake.
+
+**The network effect that powers it:**
+
+Every user who makes their profile public makes CORTEX Recruiter more valuable for every HR manager. Every HR manager who uses CORTEX Recruiter gives every user more reason to maintain a public profile. This is the same loop that made LinkedIn indispensable — except CORTEX's signal is behaviorally grounded, which makes the network effect compounding rather than commoditising.
+
+LinkedIn's moat degraded because stated credentials inflated. Endorsements became meaningless. Keywords got stuffed. The signal rotted as the network grew. CORTEX's moat strengthens as it grows — because behavioral signals are harder to inflate at scale. The corpus takes years to build and cannot be seeded retroactively.
+
+---
+
 ## The Moat
 
 | Layer | What It Is | Why It's Hard to Copy |
@@ -245,11 +310,13 @@ CORTEX exposes a capture API. Any application can push an intent or capture to C
 | **Capture Habit** | Daily use makes the corpus real | Requires months of friction-free UX; can't be retroactively seeded |
 | **Corpus Depth** | Thousands of unfiltered attention signals | Only earned over time; synthetic data doesn't substitute |
 | **Intent Signal** | Forward-looking behavioral profile | Forms over hundreds of acted and unacted intents; no shortcut |
-| **Surface Network** | Slack, Gmail, browser, mobile — the capture surface is everywhere | More surfaces = more habit = more data = harder to switch |
+| **Surface Network** | Slack, Gmail, browser, mobile — everywhere intent forms | More surfaces = more habit = more data = harder to switch |
 | **Overlap Graph** | Shared captures across a team | Network effect; value compounds as more team members join |
-| **Revealed Reputation** | Expertise + intent built from behavior, not credentials | Requires years of corpus; no shortcut to authenticity |
+| **Public Profile Depth** | Behavioral credentials visible to employers | Years of corpus; impossible to seed retroactively; gets stronger with time |
+| **Recruiter Network Effect** | Every public profile makes Recruiter more valuable; every hire makes profiles more credible | Bidirectional flywheel — same loop that made LinkedIn indispensable, but with stronger signal |
+| **Revealed Reputation** | Expertise + intent built from behavior, not credentials | Cannot be gamed by keyword stuffing or endorsement inflation |
 
-LinkedIn shows who people say they are. Resumes show where they worked. CORTEX shows what they know and what they're becoming — *proved by what they chose to pay attention to and act on, unprompted, when no one was watching.*
+**GitHub shows what you built. LinkedIn shows where you worked. CORTEX shows what you actually learned and what you're becoming** — proved by what you chose to pay attention to and act on, unprompted, when no one was watching.
 
 ---
 
@@ -297,8 +364,9 @@ That is a new product category. Not a better LinkedIn. Not a smarter CV. A behav
 | **P4: Communal Boards** | 2–5 person group opts in | Group contexts, context-aware relay, pre-meeting boards | Overlap graph begins |
 | **P5: Private Social Graph** | 5–20 person team | Overlap detection, role-aware synthesis, decision provenance | Overlap graph matures |
 | **P6: Expertise Graph** | Cross-team or org | Observational expertise routing + Intent Profile (opt-in) | Reputation signal |
-| **P7: Expertise Market** | Cross-org or open | Hiring signals, problem routing, expertise findability | Revealed reputation moat |
-| **P8: Org Memory** | AI-native orgs | Org memory API for AI agents; capture as infrastructure | Ecosystem lock-in |
+| **P7: Public Platform** | CORTEX goes public (like GitHub) | Public Intent Profiles; CORTEX Recruiter for HR; behavioral credentials | Public profile depth + recruiter flywheel |
+| **P8: Expertise Market** | Cross-org or open | Problem routing, expertise findability, skill gap closing | Revealed reputation moat |
+| **P9: Org Memory** | AI-native orgs | Org memory API for AI agents; capture as infrastructure | Ecosystem lock-in |
 
 ---
 
@@ -308,7 +376,9 @@ That is a new product category. Not a better LinkedIn. Not a smarter CV. A behav
 
 **3 years:** A team of 5–10 using CORTEX with communal boards and opt-in sharing. Pre-meeting ideation boards reduce meeting brainstorming time by > 50%. Slack integration is the primary capture surface (more captures via Slack than the web app). At least one case where the overlap graph surfaces a missed alignment before it became a missed opportunity.
 
-**7 years:** The Observational Expertise Graph exists alongside the Intent Profile. A PM can be found not because of their title, but because CORTEX knows they've been paying attention to on-demand logistics for four years and have been actively closing skill gaps in that domain for six months. The Intent Profile is a recognized professional credential — employers ask for it, candidates share it willingly.
+**7 years:** The Observational Expertise Graph exists alongside the public Intent Profile. A PM can be found not because of their title, but because CORTEX knows they've been paying attention to on-demand logistics for four years and have been actively closing skill gaps in that domain for six months. The Intent Profile is a recognized professional credential — employers ask for it, candidates share it willingly.
+
+**10 years:** CORTEX Recruiter is a category. HR managers at forward-thinking companies no longer post jobs and wait — they search public CORTEX profiles for candidates whose attention and intent trajectories match what the role requires. A candidate's CORTEX profile is as expected in a job application as their LinkedIn. The behavioral credential is standard. CV inflation has a natural ceiling for the first time — because the corpus cannot be faked.
 
 ---
 
