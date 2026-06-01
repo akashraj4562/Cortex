@@ -22,7 +22,7 @@ KNOWN_PROJECTS = [
 CONTENT_TYPES = {
     "job_application": {"icon": "💼", "color": "#4A90E2", "label": "Job Applications"},
     "food_for_thought": {"icon": "🍽️",  "color": "#E8600A", "label": "Food for Thought"},
-    "build_better":    {"icon": "🔨", "color": "#7B61FF", "label": "Build Better"},
+    "build_better":    {"icon": "🔨", "color": "#7B61FF", "label": "Product Craft"},
     "learning":        {"icon": "🧠", "color": "#2E9E6B", "label": "Learnings"},
     "interview_exp":   {"icon": "🎯", "color": "#C0392B", "label": "Interview Exp"},
     "reminder":        {"icon": "⏰", "color": "#E8834A", "label": "Reminder"},
