@@ -107,6 +107,65 @@ class TestSplitter(unittest.TestCase):
         self.assertIsNotNone(claude_item)
         self.assertIn("Claude", claude_item)
 
+    # ── URL + keyword (double-newline, non-WhatsApp) ──
+    # These are the mobile sharing patterns that caused the double-capture bug.
+    # URL\n\nshort-keyword must stay as ONE item (URL + topic_hint), not split.
+
+    def test_url_newline_keyword_stays_one_item(self):
+        """Mobile share: URL then blank line then short keyword → 1 item."""
+        blob = "https://www.linkedin.com/posts/sumitkrpal_focuslens\n\nInteresting read"
+        items = split_items(blob)
+        self.assertEqual(len(items), 1)
+        self.assertIn("Interesting read", items[0])
+        self.assertIn("sumitkrpal", items[0])
+
+    def test_url_newline_single_word_keyword_stays_one_item(self):
+        """Single-word keyword after URL → 1 item."""
+        blob = "https://www.linkedin.com/posts/vivek-tiwari\n\nInterseting"
+        items = split_items(blob)
+        self.assertEqual(len(items), 1)
+
+    def test_two_url_keyword_pairs_split_correctly(self):
+        """Two URL+keyword pairs → 2 items, each with its keyword."""
+        blob = (
+            "https://www.linkedin.com/posts/eordax_ai\n\nClaude\n\n"
+            "https://www.linkedin.com/posts/ritu-mishra_product\n\nJob"
+        )
+        items = split_items(blob)
+        self.assertEqual(len(items), 2)
+        claude_item = next((i for i in items if "eordax" in i), None)
+        job_item = next((i for i in items if "ritu-mishra" in i), None)
+        self.assertIsNotNone(claude_item)
+        self.assertIn("Claude", claude_item)
+        self.assertIsNotNone(job_item)
+        self.assertIn("Job", job_item)
+
+    def test_url_newline_long_text_splits(self):
+        """Long text (> 60 chars) after a bare URL is treated as a separate item, not a topic hint."""
+        blob = (
+            "https://linkedin.com/posts/someone\n\n"
+            "This is a long standalone note that is clearly not a topic hint but its own thought entirely"
+        )
+        items = split_items(blob)
+        self.assertEqual(len(items), 2)
+
+    def test_two_urls_no_keywords_split(self):
+        """Two URLs separated by double newline → 2 items (no keyword merging)."""
+        blob = "https://url1.com/article\n\nhttps://url2.com/article"
+        items = split_items(blob)
+        self.assertEqual(len(items), 2)
+
+    def test_url_keyword_then_standalone_text(self):
+        """URL+keyword pair followed by a standalone text → 2 items."""
+        blob = (
+            "https://linkedin.com/posts/abc\n\nSwiggy\n\n"
+            "Remind me to follow up with Vikas on Thursday"
+        )
+        items = split_items(blob)
+        self.assertEqual(len(items), 2)
+        self.assertTrue(any("abc" in i and "Swiggy" in i for i in items))
+        self.assertTrue(any("Vikas" in i for i in items))
+
     # ── Other formats ──
 
     def test_multiple_bare_urls_on_lines(self):

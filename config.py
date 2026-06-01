@@ -29,6 +29,10 @@ CONTENT_TYPES = {
     "product_idea":    {"icon": "💡", "color": "#8E44AD", "label": "Idea"},
     "general_note":    {"icon": "📝", "color": "#5A9E6F", "label": "Note"},
     "unclassified":    {"icon": "❓", "color": "#9B9B9B", "label": "Unclear"},
+    # Legacy v1.0 types — kept for backward-compat display of old DB entries.
+    # These are no longer created; new captures use the v1.2 taxonomy.
+    "blog_post":       {"icon": "🍽️",  "color": "#E8600A", "label": "Food for Thought"},
+    "job_post":        {"icon": "💼", "color": "#4A90E2", "label": "Job Applications"},
 }
 
 SCRAPER_TIMEOUT = 10

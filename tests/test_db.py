@@ -63,6 +63,17 @@ class TestDB(unittest.TestCase):
         card = db.get_capture(cid)
         self.assertTrue(card["completed"])
 
+    def test_completed_removed_from_feed(self):
+        """Completed items must not appear in the default feed (PRD §10)."""
+        cid = db.insert_capture(
+            "remind me x", "reminder", 0.9, "",
+            {"task": "x", "due_date": None, "priority": "low", "recurrence": None}, []
+        )
+        db.complete_capture(cid)
+        cards = db.get_captures()
+        ids = [c["id"] for c in cards]
+        self.assertNotIn(cid, ids)
+
     def test_get_captures_by_type(self):
         db.insert_capture("job1", "job_application", 0.9, "",
             {"company": "A", "role": "PM", "location": "", "url": "", "deadline": None, "seniority": ""}, [])

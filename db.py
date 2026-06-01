@@ -59,6 +59,7 @@ def get_captures(content_type=None, include_archived=False):
 
         if not include_archived:
             conditions.append("archived = 0")
+            conditions.append("completed = 0")
 
         if content_type:
             conditions.append("content_type = ?")
