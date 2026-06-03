@@ -519,6 +519,8 @@
 
   <!-- Hidden file input for gallery -->
   <input type="file" id="gallery-input" accept="image/*" style="display:none">
+  <!-- Hidden file input for native camera (HTTP fallback — no getUserMedia needed) -->
+  <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
 
   <!-- Camera stream overlay -->
   <div class="camera-overlay" id="camera-overlay" style="display:none">
@@ -993,7 +995,27 @@
 
   $('open-camera-opt').addEventListener('click', async () => {
     _cameraPopup.style.display = 'none';
-    await openCamera();
+    // getUserMedia requires HTTPS — fall back to native camera input on HTTP
+    if (window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      await openCamera();
+    } else {
+      $('camera-input').click();
+    }
+  });
+
+  $('camera-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const dataUrl = evt.target.result;
+      const [header, b64] = dataUrl.split(',');
+      const mediaType = header.replace('data:', '').replace(';base64', '');
+      _pendingImageB64 = {b64, mediaType};
+      showImagePreview(dataUrl, file.name);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   });
 
   async function openCamera() {
