@@ -262,12 +262,15 @@ def _row_to_card(row):
     types = get_all_types()
     cfg = types.get(ct) or {"icon": "?", "color": "#9B9B9B", "label": ct.replace("_", " ").title()}
 
+    input_type = row["input_type"] if "input_type" in row.keys() else "text"
+
     title, subtitle = _make_display_text(ct, metadata, row["raw_input"])
-    actions = _make_actions(ct, metadata)
+    actions = _make_actions(ct, metadata, input_type)
 
     return {
         "id": row["id"],
         "type": ct,
+        "input_type": input_type or "text",
         "confidence": row["confidence"],
         "rationale": row["rationale"],
         "metadata": metadata,
@@ -330,7 +333,7 @@ def _make_display_text(ct, metadata, raw_input):
     return raw_input[:60], ""
 
 
-def _make_actions(ct, metadata):
+def _make_actions(ct, metadata, input_type="text"):
     if ct == "unknown":
         return ["assign", "archive"]
     base = ["archive"]
@@ -340,4 +343,6 @@ def _make_actions(ct, metadata):
         base.insert(0, "complete")
     if metadata.get("_extract_reminder"):
         base.insert(0, "extract_reminder")
+    if input_type == "image":
+        base.insert(0, "view_image")
     return base

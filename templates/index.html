@@ -331,6 +331,19 @@
     .action-btn.open { color: var(--accent); border-color: var(--accent); }
     .action-btn.complete { color: #2a7a50; border-color: #2a7a50; }
 
+    /* Image capture thumbnail */
+    .card-thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 9px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--surface2);
+    }
+    .card.image-capture .card-actions {
+      padding-left: 66px; /* 56px thumb + 10px gap */
+    }
+
     /* Unknown / Unsorted */
     .card.unknown {
       border-style: dashed;
@@ -684,18 +697,28 @@
   function makeCard(card) {
     const d = card.display;
     const isUnknown = card.type === 'unknown';
+    const isImage = card.input_type === 'image';
     const confPct = Math.round((card.confidence || 0) * 100);
     const confColor = confPct >= 85 ? '#2a7a50' : confPct >= 70 ? '#b86c0e' : '#c0392b';
 
     const el = document.createElement('div');
-    el.className = 'card' + (isUnknown ? ' unknown' : '');
+    el.className = 'card' + (isUnknown ? ' unknown' : '') + (isImage ? ' image-capture' : '');
     el.dataset.id = card.id;
 
-    // Icon
-    const iconEl = document.createElement('div');
-    iconEl.className = 'card-icon';
-    iconEl.style.background = d.color + '22';
-    iconEl.textContent = d.icon;
+    // Icon — thumbnail for image captures, emoji otherwise
+    let iconEl;
+    if (isImage) {
+      iconEl = document.createElement('img');
+      iconEl.className = 'card-thumb';
+      iconEl.src = `/api/image/${card.id}`;
+      iconEl.alt = d.title;
+      iconEl.loading = 'lazy';
+    } else {
+      iconEl = document.createElement('div');
+      iconEl.className = 'card-icon';
+      iconEl.style.background = d.color + '22';
+      iconEl.textContent = d.icon;
+    }
 
     // Body
     const body = document.createElement('div');
@@ -757,6 +780,10 @@
       } else if (action === 'complete') {
         btn.textContent = '✓ Done';
         btn.addEventListener('click', () => completeCard(card.id, el));
+      } else if (action === 'view_image') {
+        btn.textContent = '🖼️ View';
+        btn.className = 'action-btn open';
+        btn.addEventListener('click', () => window.open(`/api/image/${card.id}`, '_blank'));
       } else if (action === 'archive') {
         btn.textContent = '× Archive';
         btn.addEventListener('click', () => archiveCard(card.id, el));

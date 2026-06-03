@@ -1,6 +1,7 @@
+import os
 import threading
 import time
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file
 
 import db
 import scraper
@@ -232,6 +233,17 @@ def feed():
     cards = db.get_captures(content_type=ct)
     badge = db.get_due_today_count()
     return jsonify({"cards": cards, "reminder_badge": badge, "grouped": False})
+
+
+@app.route("/api/image/<int:capture_id>")
+def serve_image(capture_id):
+    card = db.get_capture(capture_id)
+    if not card:
+        return jsonify({"error": "Not found"}), 404
+    image_path = card.get("metadata", {}).get("image_path")
+    if not image_path or not os.path.exists(image_path):
+        return jsonify({"error": "Image not found"}), 404
+    return send_file(image_path, mimetype="image/jpeg")
 
 
 @app.route("/api/counts")
