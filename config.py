@@ -8,7 +8,10 @@ MODEL = "claude-opus-4-8"
 PORT = 5050
 DB_PATH = os.path.join(os.path.dirname(__file__), "data", "cortex.db")
 
-CONFIDENCE_THRESHOLD = 0.70
+# Confidence routing thresholds (Release 1 — Dynamic Taxonomy)
+HIGH_CONFIDENCE = 0.80   # >= this → assign to existing type directly
+LOW_CONFIDENCE  = 0.20   # <  this → create new type (if Corty suggests one)
+                         # between HIGH and LOW → route to Unknown staging
 
 KNOWN_PROJECTS = [
     "CORTEX",
@@ -17,23 +20,6 @@ KNOWN_PROJECTS = [
     "ClearCart",
     "MicroManga",
 ]
-
-# Intent-based content types: classified by what the user will DO with the item
-CONTENT_TYPES = {
-    "job_application": {"icon": "💼", "color": "#4A90E2", "label": "Job Applications"},
-    "food_for_thought": {"icon": "🍽️",  "color": "#E8600A", "label": "Food for Thought"},
-    "build_better":    {"icon": "🔨", "color": "#7B61FF", "label": "Product Craft"},
-    "learning":        {"icon": "🧠", "color": "#2E9E6B", "label": "Learnings"},
-    "interview_exp":   {"icon": "🎯", "color": "#C0392B", "label": "Interview Exp"},
-    "reminder":        {"icon": "⏰", "color": "#E8834A", "label": "Reminder"},
-    "product_idea":    {"icon": "💡", "color": "#8E44AD", "label": "Idea"},
-    "general_note":    {"icon": "📝", "color": "#5A9E6F", "label": "Note"},
-    "unclassified":    {"icon": "❓", "color": "#9B9B9B", "label": "Unclear"},
-    # Legacy v1.0 types — kept for backward-compat display of old DB entries.
-    # These are no longer created; new captures use the v1.2 taxonomy.
-    "blog_post":       {"icon": "🍽️",  "color": "#E8600A", "label": "Food for Thought"},
-    "job_post":        {"icon": "💼", "color": "#4A90E2", "label": "Job Applications"},
-}
 
 SCRAPER_TIMEOUT = 10
 REMINDER_POLL_INTERVAL = 60

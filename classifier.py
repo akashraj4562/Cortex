@@ -1,7 +1,7 @@
 import json
 import re
 import anthropic
-from config import ANTHROPIC_API_KEY, MODEL, KNOWN_PROJECTS, CONFIDENCE_THRESHOLD
+from config import ANTHROPIC_API_KEY, MODEL, KNOWN_PROJECTS, HIGH_CONFIDENCE, LOW_CONFIDENCE
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -36,19 +36,71 @@ _LINKEDIN_URL_TYPES = [
     ("linkedin.com/pulse/", "food_for_thought"),
 ]
 
+_IMAGE_SYSTEM = """You are Corty, the CORTEX classification engine for a Senior Product Manager named Akash.
+
+Analyze this image and classify it by INTENT — what will Akash DO with this?
+
+Available intent types:
+{type_list}
+
+If no type fits well (your honest confidence would be below 0.20), propose a new intent type instead of forcing a bad fit.
+
+Confidence guidance:
+- 0.85+: Very clear fit — you're certain
+- 0.80-0.84: Clear fit with minor ambiguity
+- 0.60-0.79: Plausible but ambiguous — system routes to Unsorted for review
+- 0.20-0.59: Weak fit — system routes to Unsorted
+- Below 0.20: No good fit — use suggested_new_type instead
+
+Known projects for product_idea: {known_projects}
+
+Return ONLY valid JSON:
+{{
+  "type": "<best_matching_type_key>",
+  "confidence": 0.0-1.0,
+  "rationale": "one concise sentence explaining the intent-based classification",
+  "metadata": {{
+    "description": "what this image shows",
+    "extracted_text": "all visible text from the image, verbatim",
+    "structured_data": {{
+      "due_date": "YYYY-MM-DD or null",
+      "due_time": "HH:MM or null",
+      "price": "amount with currency symbol or null",
+      "names": ["any person or product names"],
+      "location": "location or null"
+    }},
+    ...type-specific fields below...
+  }},
+  "tags": ["tag1", "tag2", "tag3"],
+  "suggested_new_type": null
+}}
+
+When confidence is below 0.20, set suggested_new_type to:
+{{"key": "snake_case_key", "label": "Human Readable Label", "icon": "single emoji"}}
+
+Type-specific metadata fields (add to metadata based on classified type):
+
+reminder: "task": "clear action item", "due_date": "YYYY-MM-DD or null", "priority": "high|medium|low"
+job_application: "company": "", "role": "", "location": "", "url": ""
+food_for_thought: "title": "", "topic": "", "summary": "1-2 sentences on what's interesting"
+build_better: "title": "", "topic": "", "summary": "what Akash will apply from this"
+learning: "title": "", "topic": "skill area", "summary": "what Akash will learn"
+product_idea: "title": "5 words max", "project": "project name or New Idea", "core_insight": "", "one_liner": ""
+general_note: "title": "short title", "summary": "1-2 sentences"
+For any Corty-created type: "title": "short title", "summary": "1-2 sentences"
+
+Today: {today}
+Provide 2-4 relevant tags."""
+
+
 _SYSTEM = """You are Corty, the CORTEX classification engine for a Senior Product Manager named Akash.
 
-Classify each input into exactly one of these INTENT-BASED types — meaning: what will Akash DO with this?
+Your job: classify each input by INTENT — what will Akash DO with this?
 
-Types:
-- job_application: A job listing or hiring post. Action: Akash will apply when ready.
-- food_for_thought: Interesting reads to stay informed — company stories, industry news, product launches, someone's career experience, general LinkedIn posts that are worth reading but not acting on immediately.
-- build_better: Content to improve Akash's product work — PM frameworks, product teardowns, feature analysis, thought exercises on how to improve a product, strategic product thinking.
-- learning: Skill-building content to actively study — Claude/AI tools, technical tutorials, how to build better, documentation, course material. Particularly anything about Claude, AI agents, prompting, or product-tech skills.
-- interview_exp: Interview experiences, company culture stories, hiring manager perspectives, career move advice, things useful when navigating job interviews or company research.
-- reminder: Time-sensitive task, deadline, meeting, to-do.
-- product_idea: A concrete product/feature idea Akash wants to build.
-- general_note: Anything that doesn't clearly fit above.
+Available intent types:
+{type_list}
+
+If no type fits well (your honest confidence would be below 0.20), propose a new intent type instead of forcing a bad fit.
 
 Classification signals (in priority order):
 1. Explicit user keyword (highest priority — Akash always means what he writes):
@@ -66,39 +118,43 @@ Classification signals (in priority order):
    - docs.* or technical tutorials → learning
 
 3. Content analysis (when URL is scraped):
-   - Is it a job listing? → job_application
-   - Is someone sharing their interview experience? → interview_exp
-   - Is it a PM framework, product analysis, "how I improved X product"? → build_better
-   - Is it an interesting story or industry read? → food_for_thought
-   - Is it skill-building for Claude, AI, or technical building? → learning
+   - Job listing → job_application
+   - Interview experience → interview_exp
+   - PM framework / product analysis / "how I improved X" → build_better
+   - Interesting story or industry read → food_for_thought
+   - Skill-building for Claude, AI, or technical building → learning
 
-Note on "food_for_thought" vs "build_better":
-- food_for_thought = passive consumption — read, reflect, stay informed
-- build_better = active application — a framework, teardown, or analysis you'll USE in your work
+Confidence guidance:
+- 0.85+: Very clear fit — you're certain
+- 0.80-0.84: Clear fit with minor ambiguity
+- 0.60-0.79: Plausible but ambiguous — system routes to Unsorted for review
+- 0.20-0.59: Weak fit — system routes to Unsorted
+- Below 0.20: No good fit — use suggested_new_type instead
 
-Note on "learning" vs "build_better":
-- learning = skill-building (study and practice)
-- build_better = product/PM application (strategy and frameworks)
+Notes:
+- food_for_thought = passive consumption (read, reflect, stay informed)
+- build_better = active application (a framework or analysis you'll USE)
+- learning = skill-building (study and practice); build_better = PM strategy
+- For LinkedIn posts with no extra context → food_for_thought is the safe default
+- When uncertain between types → prefer food_for_thought over general_note
 
 If explicit_type is provided in the prompt, you MUST use it. Set confidence ≥ 0.90.
 topic_hint: when provided, use as the `topic` field. Capitalize it.
-
-IMPORTANT RULES:
-- NEVER return confidence below 0.72 for real text input.
-- For LinkedIn posts with no extra context → food_for_thought is the safe default.
-- When uncertain → prefer food_for_thought over general_note.
-- Only return confidence < 0.70 for truly meaningless input.
 
 Known projects for product_idea: {known_projects}
 
 Return ONLY valid JSON:
 {{
-  "type": "job_application|food_for_thought|build_better|learning|interview_exp|reminder|product_idea|general_note",
+  "type": "<best_matching_type_key>",
   "confidence": 0.0-1.0,
   "rationale": "one concise sentence explaining the intent-based classification",
   "metadata": {{...type-specific fields...}},
-  "tags": ["tag1", "tag2", "tag3"]
+  "tags": ["tag1", "tag2", "tag3"],
+  "suggested_new_type": null
 }}
+
+When confidence is below 0.20, set suggested_new_type to:
+{{"key": "snake_case_key", "label": "Human Readable Label", "icon": "single emoji"}}
 
 Metadata schemas:
 
@@ -126,8 +182,142 @@ product_idea:
 general_note:
 {{"title": "short title inferred from content", "summary": "1-2 sentences"}}
 
+For any Corty-created type (not in the list above):
+{{"title": "short title", "summary": "1-2 sentences"}}
+
 Today: {today}
 Provide 2-4 relevant tags."""
+
+
+# Excluded from the prompt type list (staging / legacy / system types)
+_PROMPT_EXCLUDED = {"unknown", "unclassified", "blog_post", "job_post"}
+
+
+def _build_type_list():
+    """Build the type list string injected into the Corty system prompt."""
+    import db
+    types = db.get_all_types()
+    lines = []
+    for key, t in types.items():
+        if key not in _PROMPT_EXCLUDED:
+            lines.append(f"- {key} ({t['label']} {t['icon']}): {t.get('description', '')}")
+    return "\n".join(lines)
+
+
+def _compute_routing(confidence, suggested_new_type, explicit_type):
+    """
+    Pure routing logic — no I/O, fully testable.
+    Returns 'assign' | 'unknown' | 'new_type'.
+    """
+    if explicit_type:
+        return "assign"
+    if confidence >= HIGH_CONFIDENCE:
+        return "assign"
+    if confidence >= LOW_CONFIDENCE:
+        return "unknown"
+    # Below LOW_CONFIDENCE
+    if suggested_new_type and isinstance(suggested_new_type, dict) and suggested_new_type.get("key"):
+        return "new_type"
+    return "unknown"
+
+
+def classify_image(base64_jpeg: str, media_type: str = "image/jpeg",
+                   hint: str = "", explicit_type=None):
+    """
+    Classify an image using claude-opus-4-8 vision.
+    Returns same dict shape as classify(): type, confidence, routing, rationale, metadata, tags.
+    """
+    import datetime
+
+    system = _IMAGE_SYSTEM.format(
+        type_list=_build_type_list(),
+        known_projects=json.dumps(KNOWN_PROJECTS),
+        today=datetime.date.today().isoformat(),
+    )
+
+    text_parts = []
+    if explicit_type:
+        text_parts.append(f"[Classification directive: type = {explicit_type}]")
+    if hint:
+        text_parts.append(f"[Context hint from user: {hint}]")
+    text_parts.append("Classify this image.")
+
+    try:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=1500,
+            system=system,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": base64_jpeg,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": "\n".join(text_parts),
+                    },
+                ],
+            }],
+        )
+
+        raw = response.content[0].text.strip()
+        if raw.startswith("```"):
+            parts_split = raw.split("```")
+            raw = parts_split[1] if len(parts_split) > 1 else raw
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+
+        result = json.loads(raw)
+
+    except (json.JSONDecodeError, IndexError, KeyError):
+        result = {
+            "type": "unknown",
+            "confidence": 0.0,
+            "rationale": "Classification failed — could not parse response",
+            "metadata": {},
+            "tags": [],
+            "suggested_new_type": None,
+        }
+    except Exception as e:
+        result = {
+            "type": "unknown",
+            "confidence": 0.0,
+            "rationale": f"Classification error: {str(e)[:100]}",
+            "metadata": {},
+            "tags": [],
+            "suggested_new_type": None,
+        }
+
+    meta = result.setdefault("metadata", {})
+    confidence = result.get("confidence", 0)
+    suggested_new_type = result.get("suggested_new_type")
+
+    # Honour explicit_type override
+    if explicit_type:
+        result["type"] = explicit_type
+        result["confidence"] = max(confidence, HIGH_CONFIDENCE)
+
+    final_confidence = result.get("confidence", 0)
+    routing = _compute_routing(final_confidence, suggested_new_type, explicit_type)
+    result["routing"] = routing
+    result["best_guess"] = result["type"] if routing == "unknown" else None
+
+    if routing == "assign":
+        pass
+    elif routing == "unknown":
+        meta["_best_guess"] = result["type"]
+        result["type"] = "unknown"
+    elif routing == "new_type":
+        result["type"] = suggested_new_type["key"]
+
+    return result
 
 
 def parse_input(raw):
@@ -180,7 +370,8 @@ def is_substack(url):
 
 def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, explicit_type=None):
     """
-    Classify input. Returns dict: type, confidence, rationale, metadata, tags.
+    Classify input. Returns dict with: type, confidence, routing, rationale, metadata, tags.
+    routing is one of: 'assign' | 'unknown' | 'new_type'
     """
     import datetime
 
@@ -201,6 +392,7 @@ def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, exp
     content = "\n\n".join(parts)
 
     system = _SYSTEM.format(
+        type_list=_build_type_list(),
         known_projects=json.dumps(KNOWN_PROJECTS),
         today=datetime.date.today().isoformat(),
     )
@@ -208,7 +400,7 @@ def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, exp
     try:
         response = client.messages.create(
             model=MODEL,
-            max_tokens=700,
+            max_tokens=800,
             system=system,
             messages=[{"role": "user", "content": content}],
         )
@@ -226,35 +418,41 @@ def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, exp
 
     except (json.JSONDecodeError, IndexError, KeyError):
         result = {
-            "type": "unclassified",
+            "type": "unknown",
             "confidence": 0.0,
             "rationale": "Classification failed — could not parse response",
             "metadata": {},
             "tags": [],
+            "suggested_new_type": None,
         }
     except Exception as e:
         result = {
-            "type": "unclassified",
+            "type": "unknown",
             "confidence": 0.0,
             "rationale": f"Classification error: {str(e)[:100]}",
             "metadata": {},
             "tags": [],
+            "suggested_new_type": None,
         }
 
     meta = result.setdefault("metadata", {})
+    confidence = result.get("confidence", 0)
+    suggested_new_type = result.get("suggested_new_type")
 
     # Preserve URL
     if source_url and not meta.get("url"):
         meta["url"] = source_url
 
     # Substack override
-    if is_substack(source_url) and result.get("confidence", 0) >= 0.50:
+    if is_substack(source_url) and confidence >= 0.50:
         result["type"] = "food_for_thought"
+        result["confidence"] = max(confidence, HIGH_CONFIDENCE)
         meta.setdefault("source", "substack")
 
     # Honour explicit_type (user's stated intent is always correct)
-    if explicit_type and result.get("confidence", 0) >= 0.50:
+    if explicit_type and confidence >= 0.50:
         result["type"] = explicit_type
+        result["confidence"] = max(confidence, HIGH_CONFIDENCE)
 
     # Normalize topic to Title Case
     if meta.get("topic"):
@@ -267,8 +465,19 @@ def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, exp
             if result.get("type") in ("food_for_thought", "build_better", "learning", "interview_exp"):
                 meta["topic"] = topic_hint.strip().title()
 
-    # Low confidence → unclassified
-    if result.get("confidence", 0) < CONFIDENCE_THRESHOLD:
-        result["type"] = "unclassified"
+    # Compute routing based on final confidence and explicit_type
+    final_confidence = result.get("confidence", 0)
+    routing = _compute_routing(final_confidence, suggested_new_type, explicit_type)
+    result["routing"] = routing
+    result["best_guess"] = result["type"] if routing == "unknown" else None
+
+    # Apply routing to the stored type
+    if routing == "assign":
+        pass  # type stays as Corty returned it
+    elif routing == "unknown":
+        meta["_best_guess"] = result["type"]
+        result["type"] = "unknown"
+    elif routing == "new_type":
+        result["type"] = suggested_new_type["key"]
 
     return result

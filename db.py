@@ -1,7 +1,67 @@
+import os
 import sqlite3
 import json
 from datetime import date
 from config import DB_PATH
+
+_SEED_TYPES = [
+    ("job_application", "Job Applications", "💼", "#4A90E2", "A job listing or hiring post. Action: Apply when ready.", 1),
+    ("food_for_thought", "Food for Thought", "🍽️", "#E8600A", "Interesting reads — stories, news, launches, posts worth reading.", 1),
+    ("build_better", "Product Craft", "🔨", "#7B61FF", "PM frameworks, teardowns, and analyses to apply in product work.", 1),
+    ("learning", "Learnings", "🧠", "#2E9E6B", "Skill-building content to actively study or practice.", 1),
+    ("interview_exp", "Interview Exp", "🎯", "#C0392B", "Interview experiences, company culture, and career move content.", 1),
+    ("reminder", "Reminder", "⏰", "#E8834A", "Time-sensitive task, deadline, or to-do.", 1),
+    ("product_idea", "Idea", "💡", "#8E44AD", "A concrete product or feature idea to build or explore.", 1),
+    ("general_note", "Note", "📝", "#5A9E6F", "Anything that doesn't fit another type — reference later.", 1),
+    # Special staging type — not a seed, not user-created
+    ("unknown", "Unsorted", "?", "#9B9B9B", "Captures awaiting classification.", 0),
+    # Legacy types for backward-compat display of old entries
+    ("blog_post", "Food for Thought", "🍽️", "#E8600A", "Legacy: blog post", 0),
+    ("job_post", "Job Applications", "💼", "#4A90E2", "Legacy: job post", 0),
+]
+
+# Module-level cache; invalidated by create_type() and init_db()
+_types_cache = None
+
+
+def _invalidate_types_cache():
+    global _types_cache
+    _types_cache = None
+
+
+def get_all_types():
+    """Return dict of {key: row_dict} for all content types. Uses module-level cache."""
+    global _types_cache
+    if _types_cache is None:
+        with get_conn() as conn:
+            rows = conn.execute("SELECT * FROM content_types").fetchall()
+        _types_cache = {r["key"]: dict(r) for r in rows}
+    return _types_cache
+
+
+def create_type(key, label, icon, color, description):
+    """Insert a new dynamic type (idempotent — INSERT OR IGNORE)."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO content_types (key, label, icon, color, description, is_seed) "
+            "VALUES (?, ?, ?, ?, ?, 0)",
+            (key, label, icon, color, description),
+        )
+    _invalidate_types_cache()
+
+
+def resolve_unknown(capture_id, new_type_key):
+    """Re-assign a capture from unknown to a real type and mark was_unknown=1."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE captures SET content_type = ?, was_unknown = 1 WHERE id = ?",
+            (new_type_key, capture_id),
+        )
+
+
+def get_unknown_captures():
+    """Return all active unknown captures (for clustering)."""
+    return get_captures(content_type="unknown")
 
 
 def get_conn():
@@ -13,18 +73,32 @@ def get_conn():
 
 
 def init_db():
+    data_dir = os.path.join(os.path.dirname(DB_PATH), "images")
+    os.makedirs(data_dir, exist_ok=True)
+
     with get_conn() as conn:
         conn.executescript("""
+            CREATE TABLE IF NOT EXISTS content_types (
+                key         TEXT PRIMARY KEY,
+                label       TEXT NOT NULL,
+                icon        TEXT NOT NULL DEFAULT '?',
+                color       TEXT NOT NULL DEFAULT '#9B9B9B',
+                description TEXT,
+                is_seed     INTEGER NOT NULL DEFAULT 0,
+                created_at  TIMESTAMP DEFAULT (datetime('now'))
+            );
+
             CREATE TABLE IF NOT EXISTS captures (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
                 raw_input    TEXT    NOT NULL,
-                content_type TEXT    NOT NULL DEFAULT 'unclassified',
+                content_type TEXT    NOT NULL DEFAULT 'unknown',
                 confidence   REAL    NOT NULL DEFAULT 0.0,
                 rationale    TEXT,
                 metadata     TEXT    NOT NULL DEFAULT '{}',
                 tags         TEXT    NOT NULL DEFAULT '[]',
                 completed    INTEGER NOT NULL DEFAULT 0,
                 archived     INTEGER NOT NULL DEFAULT 0,
+                was_unknown  INTEGER NOT NULL DEFAULT 0,
                 created_at   TIMESTAMP DEFAULT (datetime('now'))
             );
 
@@ -33,13 +107,42 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_active  ON captures(archived, completed);
         """)
 
+        # Migration: add new columns to existing tables that lack them
+        existing_cols = [r[1] for r in conn.execute("PRAGMA table_info(captures)").fetchall()]
+        if "was_unknown" not in existing_cols:
+            conn.execute(
+                "ALTER TABLE captures ADD COLUMN was_unknown INTEGER NOT NULL DEFAULT 0"
+            )
+        if "image_path" not in existing_cols:
+            conn.execute("ALTER TABLE captures ADD COLUMN image_path TEXT")
+        if "input_type" not in existing_cols:
+            conn.execute(
+                "ALTER TABLE captures ADD COLUMN input_type TEXT NOT NULL DEFAULT 'text'"
+            )
 
-def insert_capture(raw_input, content_type, confidence, rationale, metadata, tags):
+        # Seed all types (idempotent)
+        conn.executemany(
+            "INSERT OR IGNORE INTO content_types (key, label, icon, color, description, is_seed) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            _SEED_TYPES,
+        )
+
+        # Migrate legacy 'unclassified' captures to 'unknown'
+        conn.execute(
+            "UPDATE captures SET content_type = 'unknown' WHERE content_type = 'unclassified'"
+        )
+
+    _invalidate_types_cache()
+
+
+def insert_capture(raw_input, content_type, confidence, rationale, metadata, tags,
+                   image_path=None, input_type="text"):
     with get_conn() as conn:
         cur = conn.execute(
             """INSERT INTO captures
-               (raw_input, content_type, confidence, rationale, metadata, tags)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               (raw_input, content_type, confidence, rationale, metadata, tags,
+                image_path, input_type)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 raw_input,
                 content_type,
@@ -47,9 +150,12 @@ def insert_capture(raw_input, content_type, confidence, rationale, metadata, tag
                 rationale,
                 json.dumps(metadata),
                 json.dumps(tags),
+                image_path,
+                input_type,
             ),
         )
         return cur.lastrowid
+
 
 
 def get_captures(content_type=None, include_archived=False):
@@ -147,15 +253,14 @@ def get_tab_counts():
 
 
 def _row_to_card(row):
-    from config import CONTENT_TYPES
-
     if row is None:
         return None
 
     metadata = json.loads(row["metadata"])
     tags = json.loads(row["tags"])
     ct = row["content_type"]
-    cfg = CONTENT_TYPES.get(ct, CONTENT_TYPES["unclassified"])
+    types = get_all_types()
+    cfg = types.get(ct) or {"icon": "?", "color": "#9B9B9B", "label": ct.replace("_", " ").title()}
 
     title, subtitle = _make_display_text(ct, metadata, row["raw_input"])
     actions = _make_actions(ct, metadata)
@@ -218,13 +323,21 @@ def _make_display_text(ct, metadata, raw_input):
         summary = (metadata.get("summary") or "")[:80]
         return title, summary
 
-    return raw_input[:60], "Needs classification"
+    if ct == "unknown":
+        title = metadata.get("title") or raw_input[:60]
+        return title, "Awaiting classification"
+
+    return raw_input[:60], ""
 
 
 def _make_actions(ct, metadata):
+    if ct == "unknown":
+        return ["assign", "archive"]
     base = ["archive"]
     if ct in ("job_application", "food_for_thought", "build_better", "learning", "interview_exp") and metadata.get("url"):
         base.insert(0, "open_url")
     if ct == "reminder":
         base.insert(0, "complete")
+    if metadata.get("_extract_reminder"):
+        base.insert(0, "extract_reminder")
     return base

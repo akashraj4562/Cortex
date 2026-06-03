@@ -331,10 +331,133 @@
     .action-btn.open { color: var(--accent); border-color: var(--accent); }
     .action-btn.complete { color: #2a7a50; border-color: #2a7a50; }
 
-    /* Unclassified */
-    .card.unclassified {
+    /* Unknown / Unsorted */
+    .card.unknown {
       border-style: dashed;
-      border-color: #c0c0cc;
+      border-color: #d4a017;
+    }
+
+    /* Type picker inline */
+    .type-picker {
+      position: relative;
+      display: inline-block;
+    }
+    .type-picker-dropdown {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+      z-index: 100;
+      min-width: 200px;
+      max-height: 240px;
+      overflow-y: auto;
+      padding: 6px;
+    }
+    .type-picker-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+      transition: background 0.1s;
+    }
+    .type-picker-option:hover { background: var(--surface2); }
+
+    /* ── Camera popup ── */
+    .camera-popup {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      padding: 6px;
+      z-index: 200;
+      min-width: 210px;
+    }
+    .camera-popup-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text);
+      transition: background 0.1s;
+    }
+    .camera-popup-option:hover { background: var(--surface2); }
+    .camera-popup-option .option-icon { font-size: 18px; }
+
+    /* Camera stream overlay */
+    .camera-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .camera-overlay video,
+    .camera-overlay canvas {
+      max-width: min(480px, 95vw);
+      max-height: 60vh;
+      border-radius: 10px;
+      object-fit: cover;
+    }
+    .camera-overlay canvas { display: none; }
+    .camera-controls {
+      display: flex;
+      gap: 12px;
+    }
+    .cam-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    .cam-btn.secondary {
+      background: rgba(255,255,255,0.15);
+    }
+
+    /* Image preview before submit */
+    .image-preview-wrap {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+      padding: 8px;
+      background: var(--surface2);
+      border-radius: 8px;
+    }
+    .image-preview-wrap img {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    .image-preview-info { font-size: 12px; color: var(--text2); flex: 1; }
+    .image-preview-clear {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      color: var(--text2);
     }
 
     /* States */
@@ -373,7 +496,42 @@
       <span class="capture-tip">⌘ + Enter to capture</span>
       <button id="capture-btn">Capture</button>
     </div>
+    <div class="image-preview-wrap" id="image-preview-wrap">
+      <img id="image-preview-thumb" src="" alt="preview">
+      <div class="image-preview-info" id="image-preview-info">Image ready</div>
+      <button class="image-preview-clear" id="image-preview-clear" title="Remove image">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;position:relative">
+      <div style="position:relative">
+        <button id="camera-icon-btn" title="Capture image" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px;color:var(--text2);line-height:1">📷</button>
+        <div class="camera-popup" id="camera-popup" style="display:none">
+          <div class="camera-popup-option" id="open-camera-opt">
+            <span class="option-icon">📷</span><span>Open Camera</span>
+          </div>
+          <div class="camera-popup-option" id="open-gallery-opt">
+            <span class="option-icon">🖼️</span><span>Upload from Gallery</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="capture-status" id="capture-status"></div>
+  </div>
+
+  <!-- Hidden file input for gallery -->
+  <input type="file" id="gallery-input" accept="image/*" style="display:none">
+
+  <!-- Camera stream overlay -->
+  <div class="camera-overlay" id="camera-overlay" style="display:none">
+    <video id="camera-video" autoplay playsinline></video>
+    <canvas id="camera-canvas"></canvas>
+    <div class="camera-controls" id="camera-controls-capture">
+      <button class="cam-btn secondary" id="cam-cancel">✕ Cancel</button>
+      <button class="cam-btn" id="cam-capture">Capture</button>
+    </div>
+    <div class="camera-controls" id="camera-controls-confirm" style="display:none">
+      <button class="cam-btn secondary" id="cam-retake">↩ Retake</button>
+      <button class="cam-btn" id="cam-use">Use Photo</button>
+    </div>
   </div>
 
   <!-- Tabs -->
@@ -387,6 +545,8 @@
     <button class="tab" data-type="reminder">⏰ Reminders <span class="badge" id="reminder-badge" style="display:none"></span></button>
     <button class="tab" data-type="product_idea">💡 Ideas</button>
     <button class="tab" data-type="general_note">📝 Notes</button>
+    <button class="tab" data-type="unknown" id="tab-unknown" style="color:#b86c0e;border-color:#d4a017">? Unsorted <span class="badge" id="unsorted-badge" style="display:none;background:#d4a017"></span></button>
+    <!-- Dynamic Corty-created types inserted here by JS -->
   </div>
 
   <!-- Feed -->
@@ -415,6 +575,8 @@
   });
 
   async function doCapture() {
+    if (_pendingImageB64) { await doImageCapture(); return; }
+
     const text = $('capture-box').value.trim();
     if (!text) return;
     setStatus('Corty is classifying…', '');
@@ -519,12 +681,12 @@
 
   function makeCard(card) {
     const d = card.display;
-    const isUnclassified = card.type === 'unclassified';
+    const isUnknown = card.type === 'unknown';
     const confPct = Math.round((card.confidence || 0) * 100);
     const confColor = confPct >= 85 ? '#2a7a50' : confPct >= 70 ? '#b86c0e' : '#c0392b';
 
     const el = document.createElement('div');
-    el.className = 'card' + (isUnclassified ? ' unclassified' : '');
+    el.className = 'card' + (isUnknown ? ' unknown' : '');
     el.dataset.id = card.id;
 
     // Icon
@@ -577,6 +739,11 @@
     const actions = document.createElement('div');
     actions.className = 'card-actions';
     (d.actions || []).forEach(action => {
+      if (action === 'assign') {
+        const picker = makeTypePicker(card.id, el);
+        actions.appendChild(picker);
+        return;
+      }
       const btn = document.createElement('button');
       btn.className = 'action-btn ' + action;
       if (action === 'open_url') {
@@ -591,6 +758,9 @@
       } else if (action === 'archive') {
         btn.textContent = '× Archive';
         btn.addEventListener('click', () => archiveCard(card.id, el));
+      } else if (action === 'extract_reminder') {
+        btn.textContent = '⏰ Extract Reminder';
+        btn.addEventListener('click', () => extractReminder(card, el));
       }
       actions.appendChild(btn);
     });
@@ -618,6 +788,94 @@
     refreshCounts();
   }
 
+  // ── Type picker (for Unknown cards) ──
+  let _allTypes = null;
+
+  async function getAllTypes() {
+    if (!_allTypes) {
+      _allTypes = await fetch('/api/types').then(r => r.json()).catch(() => []);
+    }
+    return _allTypes;
+  }
+
+  function makeTypePicker(captureId, cardEl) {
+    const wrap = document.createElement('div');
+    wrap.className = 'type-picker';
+
+    const btn = document.createElement('button');
+    btn.className = 'action-btn assign';
+    btn.textContent = '→ Assign';
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'type-picker-dropdown';
+    dropdown.style.display = 'none';
+
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (dropdown.style.display !== 'none') {
+        dropdown.style.display = 'none';
+        return;
+      }
+      dropdown.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#999">Loading…</div>';
+      dropdown.style.display = '';
+      const types = await getAllTypes();
+      dropdown.innerHTML = '';
+      types.forEach(t => {
+        const opt = document.createElement('div');
+        opt.className = 'type-picker-option';
+        opt.innerHTML = `<span>${t.icon}</span><span>${esc(t.label)}</span>`;
+        opt.addEventListener('click', async () => {
+          await assignCard(captureId, t.key, cardEl);
+          dropdown.style.display = 'none';
+        });
+        dropdown.appendChild(opt);
+      });
+    });
+
+    document.addEventListener('click', () => { dropdown.style.display = 'none'; }, {once: false});
+
+    wrap.appendChild(btn);
+    wrap.appendChild(dropdown);
+    return wrap;
+  }
+
+  async function assignCard(captureId, typeKey, cardEl) {
+    try {
+      await fetch('/api/unknown/resolve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: captureId, type: typeKey}),
+      });
+      cardEl.style.opacity = '0';
+      cardEl.style.transition = 'opacity 0.2s';
+      setTimeout(() => cardEl.remove(), 200);
+      _allTypes = null; // invalidate cache so new types show
+      refreshCounts();
+    } catch(e) { /* silent */ }
+  }
+
+  // ── Dynamic Corty-created type tabs ──
+  async function loadDynamicTypes() {
+    try {
+      const types = await getAllTypes();
+      const tabsEl = $('tabs');
+      const existingTypes = new Set(
+        [...tabsEl.querySelectorAll('.tab[data-type]')].map(t => t.dataset.type)
+      );
+      types
+        .filter(t => !t.is_seed && !existingTypes.has(t.key))
+        .forEach(t => {
+          const tab = document.createElement('button');
+          tab.className = 'tab';
+          tab.dataset.type = t.key;
+          tab.innerHTML = `${esc(t.icon)} ${esc(t.label)}`;
+          // Insert before the Unsorted tab
+          const unsortedTab = $('tab-unknown');
+          tabsEl.insertBefore(tab, unsortedTab);
+        });
+    } catch(e) { /* silent */ }
+  }
+
   // ── Tab counts ──
   async function refreshCounts() {
     try {
@@ -625,7 +883,7 @@
       document.querySelectorAll('.tab[data-type]').forEach(tab => {
         const type = tab.dataset.type;
         if (!type) return; // "All" tab
-        // Remove old count span if exists
+        if (type === 'unknown') return; // handled separately below
         const old = tab.querySelector('.count');
         if (old) old.remove();
         const n = counts[type] || 0;
@@ -637,6 +895,7 @@
         }
       });
       updateReminderBadgeFrom(counts['reminder'] || 0);
+      updateUnsortedBadgeFrom(counts['unknown'] || 0);
     } catch(e) { /* silent */ }
   }
 
@@ -647,6 +906,16 @@
 
   function updateReminderBadgeFrom(n) {
     const badge = $('reminder-badge');
+    if (n > 0) {
+      badge.textContent = n;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function updateUnsortedBadgeFrom(n) {
+    const badge = $('unsorted-badge');
     if (n > 0) {
       badge.textContent = n;
       badge.style.display = '';
@@ -670,10 +939,180 @@
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // ── Extract reminder action ──
+  async function extractReminder(card, cardEl) {
+    const structured = (card.metadata && card.metadata.structured_data) || {};
+    const dueDate = structured.due_date;
+    if (!dueDate) return;
+    const description = (card.metadata && card.metadata.description) || '';
+    await fetch('/api/capture', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        text: `Reminder: ${description} — due ${dueDate}`,
+      }),
+    });
+    // Remove extract_reminder button from card
+    cardEl.querySelectorAll('.action-btn.extract_reminder').forEach(b => b.remove());
+    setStatus('✓ Reminder created', 'ok');
+  }
+
+  // ── Camera / image capture ──
+  let _pendingImageB64 = null;
+  let _cameraStream = null;
+
+  const _cameraIconBtn = $('camera-icon-btn');
+  const _cameraPopup   = $('camera-popup');
+
+  _cameraIconBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    _cameraPopup.style.display = _cameraPopup.style.display === 'none' ? '' : 'none';
+  });
+  document.addEventListener('click', () => { _cameraPopup.style.display = 'none'; });
+
+  $('open-gallery-opt').addEventListener('click', () => {
+    _cameraPopup.style.display = 'none';
+    $('gallery-input').click();
+  });
+
+  $('gallery-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const dataUrl = evt.target.result;
+      // dataUrl = "data:image/jpeg;base64,..."
+      const [header, b64] = dataUrl.split(',');
+      const mediaType = header.replace('data:', '').replace(';base64', '');
+      _pendingImageB64 = {b64, mediaType};
+      showImagePreview(dataUrl, file.name);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // reset so same file can be re-selected
+  });
+
+  $('open-camera-opt').addEventListener('click', async () => {
+    _cameraPopup.style.display = 'none';
+    await openCamera();
+  });
+
+  async function openCamera() {
+    try {
+      _cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {facingMode: {ideal: 'environment'}},
+      });
+    } catch(err) {
+      setStatus('Camera access denied — use Gallery instead', 'error');
+      return;
+    }
+    const video = $('camera-video');
+    const canvas = $('camera-canvas');
+    video.srcObject = _cameraStream;
+    video.style.display = '';
+    canvas.style.display = 'none';
+    $('camera-controls-capture').style.display = '';
+    $('camera-controls-confirm').style.display = 'none';
+    $('camera-overlay').style.display = '';
+  }
+
+  $('cam-cancel').addEventListener('click', closeCamera);
+
+  $('cam-capture').addEventListener('click', () => {
+    const video = $('camera-video');
+    const canvas = $('camera-canvas');
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    video.style.display = 'none';
+    canvas.style.display = '';
+    $('camera-controls-capture').style.display = 'none';
+    $('camera-controls-confirm').style.display = '';
+  });
+
+  $('cam-retake').addEventListener('click', () => {
+    const video = $('camera-video');
+    const canvas = $('camera-canvas');
+    video.style.display = '';
+    canvas.style.display = 'none';
+    $('camera-controls-capture').style.display = '';
+    $('camera-controls-confirm').style.display = 'none';
+  });
+
+  $('cam-use').addEventListener('click', () => {
+    const canvas = $('camera-canvas');
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const b64 = dataUrl.split(',')[1];
+    _pendingImageB64 = {b64, mediaType: 'image/jpeg'};
+    closeCamera();
+    showImagePreview(dataUrl, 'camera photo');
+  });
+
+  function closeCamera() {
+    $('camera-overlay').style.display = 'none';
+    if (_cameraStream) {
+      _cameraStream.getTracks().forEach(t => t.stop());
+      _cameraStream = null;
+    }
+    $('camera-video').srcObject = null;
+  }
+
+  function showImagePreview(dataUrl, name) {
+    $('image-preview-thumb').src = dataUrl;
+    $('image-preview-info').textContent = name;
+    $('image-preview-wrap').style.display = 'flex';
+  }
+
+  function clearImagePreview() {
+    _pendingImageB64 = null;
+    $('image-preview-thumb').src = '';
+    $('image-preview-wrap').style.display = 'none';
+  }
+
+  $('image-preview-clear').addEventListener('click', clearImagePreview);
+
+  async function doImageCapture() {
+    setStatus('Corty is analyzing image…', '');
+    $('capture-btn').disabled = true;
+
+    const hint = $('capture-box').value.trim();
+    const {b64, mediaType} = _pendingImageB64;
+
+    try {
+      const res = await fetch('/api/capture/image', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({image: b64, media_type: mediaType, hint}),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setStatus(err.error || 'Image capture failed', 'error');
+        return;
+      }
+
+      const card = await res.json();
+      $('capture-box').value = '';
+      $('capture-box').blur();
+      clearImagePreview();
+
+      const topic = card.metadata && card.metadata.topic ? ' · ' + card.metadata.topic : '';
+      setStatus(`✓ Image captured as ${card.display.label}${topic}`, 'ok');
+
+      if (!activeType || activeType === card.type) prependCard(card);
+      refreshCounts();
+    } catch(e) {
+      setStatus('Network error — try again', 'error');
+    } finally {
+      $('capture-btn').disabled = false;
+    }
+  }
+
   // ── Init ──
   loadFeed();
   refreshCounts();
+  loadDynamicTypes();
   setInterval(refreshCounts, 60000);
+  setInterval(loadDynamicTypes, 300000); // refresh dynamic tabs every 5 min
 </script>
 </body>
 </html>
