@@ -1,6 +1,12 @@
 import os
+import secrets
+import hashlib
+import base64
 import threading
 import time
+from urllib.parse import urlencode
+
+import requests as http_requests
 from flask import Flask, request, jsonify, render_template, send_file
 
 import db
@@ -9,7 +15,12 @@ import classifier
 import splitter
 import type_manager
 import image_processor
-from config import PORT, REMINDER_POLL_INTERVAL
+from zepto_client import encrypt_token, decrypt_token, search_all_items, add_items_to_cart, list_all_addresses, get_cart, update_cart_items, auto_add_shopping_items, search_single_item, swap_cart_item
+from config import (
+    PORT, REMINDER_POLL_INTERVAL,
+    ZEPTO_OAUTH_AUTH_URL, ZEPTO_OAUTH_TOKEN_URL,
+    ZEPTO_CLIENT_ID, ZEPTO_OAUTH_REDIRECT_URI,
+)
 
 app = Flask(__name__)
 db.init_db()
@@ -53,6 +64,12 @@ def _process_one(raw_item):
                 color="#6248d8",
                 description=f"Corty-created: {ntype.get('label', '')}",
             )
+
+    # For shopping_list text captures, run Haiku extraction to get structured items
+    if result["type"] == "shopping_list":
+        extracted = classifier.extract_shopping_items(raw_item)
+        if extracted:
+            result.setdefault("metadata", {})["items"] = extracted
 
     capture_id = db.insert_capture(
         raw_input=raw_item,
@@ -271,6 +288,393 @@ def complete(capture_id):
 @app.route("/api/badge")
 def badge():
     return jsonify({"reminder_badge": db.get_due_today_count()})
+
+
+# ---------------------------------------------------------------------------
+# Zepto integration
+# ---------------------------------------------------------------------------
+
+# PKCE state store — persisted to DB so server restarts don't break in-flight OAuth flows
+
+
+@app.route("/api/zepto/status")
+def zepto_status():
+    encrypted = db.get_zepto_token()
+    return jsonify({"connected": encrypted is not None})
+
+
+@app.route("/api/zepto/init")
+def zepto_init():
+    if not ZEPTO_CLIENT_ID:
+        return jsonify({"error": "ZEPTO_CLIENT_ID not configured"}), 500
+
+    code_verifier = secrets.token_urlsafe(64)
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).rstrip(b"=").decode()
+    state = secrets.token_urlsafe(32)
+    db.store_oauth_state(state, code_verifier)
+
+    params = {
+        "response_type": "code",
+        "client_id": ZEPTO_CLIENT_ID,
+        "redirect_uri": ZEPTO_OAUTH_REDIRECT_URI,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+        "state": state,
+        "resource": "https://mcp.zepto.co.in",  # RFC 8707 — audience for MCP server
+    }
+    auth_url = f"{ZEPTO_OAUTH_AUTH_URL}?{urlencode(params)}"
+    return jsonify({"auth_url": auth_url})
+
+
+@app.route("/api/zepto/callback")
+def zepto_callback():
+    error = request.args.get("error", "").strip()
+    if error:
+        error_desc = request.args.get("error_description", error)[:200]
+        return render_template("index.html", zepto_error=error_desc)
+
+    code = request.args.get("code", "").strip()
+    state = request.args.get("state", "").strip()
+
+    if not code or not state:
+        return jsonify({"error": "Missing code or state parameter"}), 400
+
+    code_verifier = db.consume_oauth_state(state)
+    if not code_verifier:
+        return jsonify({"error": "Invalid or expired OAuth state"}), 400
+
+    try:
+        token_resp = http_requests.post(
+            ZEPTO_OAUTH_TOKEN_URL,
+            json={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": ZEPTO_OAUTH_REDIRECT_URI,
+                "client_id": ZEPTO_CLIENT_ID,
+                "code_verifier": code_verifier,
+                "resource": "https://mcp.zepto.co.in",  # RFC 8707 — bind token to MCP server
+            },
+            timeout=10,
+        )
+        token_resp.raise_for_status()
+        token_data = token_resp.json()
+    except Exception:
+        return jsonify({"error": "Token exchange with Zepto failed"}), 502
+
+    access_token = token_data.get("access_token")
+    if not access_token:
+        return jsonify({"error": "No access_token in Zepto response"}), 502
+
+    encrypted = encrypt_token(access_token)
+    db.store_zepto_token(encrypted)
+    db.log_event("zepto_connected", {})
+
+    return render_template("index.html")
+
+
+@app.route("/api/zepto/addresses")
+def zepto_addresses():
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected", "code": "not_connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid — please reconnect"}), 401
+    try:
+        addresses = list_all_addresses(access_token)
+    except Exception as e:
+        return jsonify({"error": f"Failed to load addresses: {str(e)[:120]}"}), 502
+    return jsonify({"addresses": addresses})
+
+
+@app.route("/api/zepto/search", methods=["POST"])
+def zepto_search():
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected", "code": "not_connected"}), 401
+
+    body = request.get_json(silent=True) or {}
+    capture_id = body.get("capture_id")
+    address_id  = (body.get("address_id") or "").strip() or None
+    if not capture_id:
+        return jsonify({"error": "capture_id is required"}), 400
+
+    card = db.get_capture(int(capture_id))
+    if not card or card.get("type") != "shopping_list":
+        return jsonify({"error": "Not a shopping_list capture"}), 400
+
+    items = card.get("metadata", {}).get("items", [])
+    if not items:
+        return jsonify({"error": "No items found in shopping list"}), 400
+
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid — please reconnect"}), 401
+
+    item_names = [
+        i.get("name", str(i)) if isinstance(i, dict) else str(i)
+        for i in items
+    ]
+
+    try:
+        results = search_all_items(access_token, item_names, address_id=address_id)
+    except Exception as e:
+        return jsonify({"error": f"Zepto search failed: {str(e)[:120]}"}), 502
+
+    confirmation_items = []
+    not_found = []
+    for item_name, products in results.items():
+        if products:
+            # Previously bought products sort first
+            products_sorted = sorted(products, key=lambda p: (0 if p.get("previously_bought") else 1))
+            confirmation_items.append({
+                "query": item_name,
+                "selected_product": products_sorted[0],
+                "alternatives": products_sorted[1:5],
+                "quantity": 1,
+            })
+        else:
+            not_found.append(item_name)
+
+    confirmation_token = db.create_pending_cart_op(confirmation_items)
+    db.log_event("zepto_search", {"capture_id": capture_id, "item_count": len(item_names)})
+
+    return jsonify({
+        "confirmation_items": confirmation_items,
+        "confirmation_token": confirmation_token,
+        "not_found": not_found,
+    })
+
+
+@app.route("/api/zepto/cart-add", methods=["POST"])
+def zepto_cart_add():
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected", "code": "not_connected"}), 401
+
+    body = request.get_json(silent=True) or {}
+    confirmation_token = (body.get("confirmation_token") or "").strip()
+    product_overrides  = body.get("products") or []
+    address_id         = (body.get("address_id") or "").strip() or None
+
+    if not confirmation_token:
+        return jsonify({"error": "confirmation_token is required"}), 403
+
+    items = db.consume_pending_cart_op(confirmation_token)
+    if items is None:
+        return jsonify({"error": "Invalid or expired confirmation_token"}), 403
+
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid — please reconnect"}), 401
+
+    # Index-keyed override map: {str(idx): {pvid, spid, quantity}}
+    override_map = {str(p["idx"]): p for p in product_overrides if "idx" in p}
+
+    cart_items = []
+    failed = []
+    item_queries = []
+
+    for idx, item in enumerate(items):
+        query = item.get("query", "")
+        ov = override_map.get(str(idx))
+        if ov:
+            pvid = ov.get("pvid", "")
+            spid = ov.get("spid", "")
+            quantity = int(ov.get("quantity", 1))
+        else:
+            product = item.get("selected_product") or {}
+            pvid = product.get("pvid", "")
+            spid = product.get("spid", "")
+            quantity = int(item.get("quantity") or 1)
+
+        if not pvid or not spid:
+            failed.append({"query": query, "reason": "no product selected"})
+            continue
+
+        cart_items.append({"pvid": pvid, "spid": spid, "quantity": quantity})
+        item_queries.append(query)
+
+    added = []
+    if cart_items:
+        try:
+            add_items_to_cart(access_token, cart_items, address_id=address_id)
+            added = [{"query": q} for q in item_queries]
+        except Exception as e:
+            failed.extend([{"query": q, "reason": str(e)[:120]} for q in item_queries])
+
+    db.log_event("zepto_cart_add", {"added_count": len(added), "failed_count": len(failed)})
+
+    return jsonify({"added": added, "failed": failed, "total": len(items)})
+
+
+@app.route("/api/zepto/cart")
+def zepto_view_cart():
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected", "code": "not_connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid — please reconnect"}), 401
+    address_id = (request.args.get("address_id") or "").strip() or None
+    try:
+        result = get_cart(access_token, address_id=address_id)
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch cart: {str(e)[:120]}"}), 502
+    return jsonify(result)
+
+
+@app.route("/api/zepto/cart/update", methods=["POST"])
+def zepto_cart_update():
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected", "code": "not_connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid — please reconnect"}), 401
+    body = request.get_json(silent=True) or {}
+    items = body.get("items") or []
+    address_id = (body.get("address_id") or "").strip() or None
+    try:
+        update_cart_items(access_token, items, address_id=address_id)
+    except ValueError as e:
+        if "cannot_clear_cart" in str(e):
+            return jsonify({"error": "cannot_clear_cart"}), 422
+        return jsonify({"error": str(e)[:120]}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)[:120]}), 502
+    return jsonify({"ok": True})
+
+
+@app.route("/api/zepto/auto-add", methods=["POST"])
+def zepto_auto_add():
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected", "code": "not_connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid — please reconnect"}), 401
+
+    body = request.get_json(silent=True) or {}
+    tokens = [t.strip() for t in (body.get("tokens") or []) if str(t).strip()]
+    capture_id = body.get("capture_id")
+    address_id = (body.get("address_id") or "").strip() or None
+
+    if not tokens:
+        return jsonify({"error": "No tokens provided"}), 400
+
+    try:
+        results = auto_add_shopping_items(access_token, tokens, address_id=address_id)
+    except Exception as e:
+        return jsonify({"error": f"Auto-add failed: {str(e)[:120]}"}), 502
+
+    added_count = sum(1 for r in results if r["added"])
+    if capture_id and added_count > 0:
+        db.archive_capture(int(capture_id))
+        # Store what was added so the card can show per-item results + Swap buttons
+        capture = db.get_capture(int(capture_id))
+        if capture:
+            meta = capture.get("metadata") or {}
+            meta["auto_add_results"] = results
+            db.update_capture_metadata(int(capture_id), meta)
+
+    db.log_event("zepto_auto_add", {"token_count": len(tokens), "added": added_count})
+    return jsonify({"results": results, "archived": capture_id is not None and added_count > 0})
+
+
+@app.route("/api/zepto/search-simple", methods=["POST"])
+def zepto_search_simple():
+    """Search Zepto for a single query string. Used by the Swap flow."""
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid"}), 401
+
+    body = request.get_json(silent=True) or {}
+    query = (body.get("query") or "").strip()
+    if not query:
+        return jsonify({"error": "No query provided"}), 400
+
+    try:
+        products = search_single_item(access_token, query)
+    except Exception as e:
+        return jsonify({"error": f"Search failed: {str(e)[:120]}"}), 502
+
+    return jsonify({"products": products})
+
+
+@app.route("/api/zepto/swap", methods=["POST"])
+def zepto_swap():
+    """Remove old cart item and add a replacement. Used by the Swap ↻ flow."""
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid"}), 401
+
+    body = request.get_json(silent=True) or {}
+    old_pvid = (body.get("old_pvid") or "").strip()
+    new_pvid = (body.get("new_pvid") or "").strip()
+    new_spid = (body.get("new_spid") or "").strip()
+    capture_id = body.get("capture_id")
+    new_product_name = (body.get("new_product_name") or "").strip()
+    token_query = (body.get("token_query") or "").strip()
+
+    if not old_pvid or not new_pvid or not new_spid:
+        return jsonify({"error": "Missing pvid/spid"}), 400
+
+    try:
+        swap_cart_item(access_token, old_pvid, new_pvid, new_spid)
+    except Exception as e:
+        return jsonify({"error": f"Swap failed: {str(e)[:120]}"}), 502
+
+    # Update stored auto_add_results so the card reflects the new product
+    if capture_id and new_product_name:
+        try:
+            capture = db.get_capture(int(capture_id))
+            if capture:
+                meta = capture.get("metadata") or {}
+                results = meta.get("auto_add_results") or []
+                for r in results:
+                    if r.get("pvid") == old_pvid or r.get("token") == token_query:
+                        r["product_name"] = new_product_name
+                        r["pvid"] = new_pvid
+                        r["spid"] = new_spid
+                        break
+                meta["auto_add_results"] = results
+                db.update_capture_metadata(int(capture_id), meta)
+        except Exception:
+            pass
+
+    db.log_event("zepto_swap", {"old_pvid": old_pvid[:8], "new_pvid": new_pvid[:8]})
+    return jsonify({"success": True, "product_name": new_product_name})
+
+
+@app.route("/api/feed/archived")
+def feed_archived():
+    ct = request.args.get("type") or None
+    cards = db.get_archived_captures(content_type=ct)
+    return jsonify({"cards": cards})
+
+
+@app.route("/api/zepto/disconnect", methods=["POST"])
+def zepto_disconnect():
+    db.delete_zepto_token()
+    db.log_event("zepto_disconnected", {})
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------

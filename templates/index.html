@@ -19,21 +19,194 @@
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
 
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
     body {
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 15px;
-      min-height: 100vh;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Layout ── */
+    /* ── Layout — static top + scrollable feed ── */
     .app {
       max-width: 720px;
       margin: 0 auto;
-      padding: 16px 14px calc(32px + var(--safe-bottom));
+      height: 100%;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
+    .page-top {
+      flex-shrink: 0;
+      padding: 16px 14px 0;
+      background: var(--bg);
+    }
+    #feed-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 14px calc(24px + var(--safe-bottom));
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── Feed toolbar (toggle) ── */
+    .feed-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 4px 0 8px;
+    }
+    .archived-toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--text2);
+      cursor: pointer;
+      user-select: none;
+    }
+    .archived-toggle input[type=checkbox] {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    /* ── Archived section divider ── */
+    .archived-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 20px 0 8px;
+      color: var(--text2);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .archived-divider::before,
+    .archived-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .card.archived-card { opacity: 0.65; }
+
+    /* ── Auto-add toast ── */
+    .auto-add-toast {
+      position: fixed;
+      bottom: calc(20px + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: #27AE60;
+      color: #fff;
+      border-radius: 20px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 9999;
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .auto-add-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Auto-add result rows on archived cards ── */
+    .auto-add-results {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .auto-add-result-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+    .auto-add-check { color: #27AE60; font-weight: 700; flex-shrink: 0; }
+    .auto-add-token { font-weight: 600; color: var(--text); flex-shrink: 0; }
+    .auto-add-arrow { opacity: 0.4; flex-shrink: 0; }
+    .auto-add-product { color: var(--text2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .swap-btn {
+      flex-shrink: 0;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 11px;
+      padding: 2px 8px;
+      color: var(--accent);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .swap-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ── Swap sheet modal ── */
+    .swap-sheet-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9990;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      align-items: flex-end;
+    }
+    .swap-sheet-inner {
+      width: 100%;
+      background: var(--surface);
+      border-radius: 16px 16px 0 0;
+      padding: 16px 16px calc(20px + var(--safe-bottom));
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .swap-sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .swap-sheet-header span { font-size: 15px; font-weight: 700; color: var(--text); }
+    .swap-close-btn { background: none; border: none; font-size: 20px; color: var(--text2); cursor: pointer; padding: 0; line-height: 1; }
+    .swap-product-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .swap-product-row.in-cart { background: #f0faf4; margin: 0 -16px; padding: 10px 16px; }
+    .swap-product-info { flex: 1; min-width: 0; }
+    .swap-product-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .swap-product-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+    .pb-badge { color: #27AE60; }
+    .in-cart-badge { font-size: 11px; color: #27AE60; font-weight: 600; flex-shrink: 0; }
+    .swap-pick-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .swap-pick-btn:disabled { opacity: 0.5; cursor: default; }
 
     /* ── Header ── */
     header {
@@ -487,91 +660,472 @@
       padding: 32px;
       font-size: 14px;
     }
+
+    /* ── Zepto ── */
+    .zepto-addr-bar {
+      display: none;
+      padding: 8px 16px;
+      background: rgba(39,174,96,0.06);
+      border-bottom: 1px solid rgba(39,174,96,0.15);
+      align-items: center;
+      gap: 8px;
+    }
+    .zepto-addr-bar.visible { display: flex; }
+    .zepto-addr-label {
+      font-size: 11px;
+      color: #27AE60;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .zepto-addr-select {
+      flex: 1;
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .zepto-addr-select option { background: var(--surface); }
+    .zepto-addr-subtext {
+      font-size: 10px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0 16px 6px;
+      display: none;
+    }
+    .zepto-addr-subtext.visible { display: block; }
+    .zepto-view-cart-btn {
+      flex-shrink: 0;
+      background: rgba(39,174,96,0.12);
+      border: 1px solid rgba(39,174,96,0.35);
+      border-radius: 6px;
+      color: #27AE60;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .zepto-view-cart-btn:hover { background: rgba(39,174,96,0.22); }
+    /* Cart modal */
+    .cart-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    .cart-modal-overlay.open { display: flex; }
+    .cart-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: min(480px, 94vw);
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .cart-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cart-modal-title { font-size: 15px; font-weight: 600; }
+    .cart-modal-close { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; }
+    .cart-modal-body { overflow-y: auto; padding: 12px 18px; flex: 1; }
+    .cart-item-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .cart-item-row:last-child { border-bottom: none; }
+    .cart-item-name { flex: 1; font-size: 13px; line-height: 1.4; color: var(--text); }
+    .cart-item-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .cart-qty-btn {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 15px; line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.12s;
+    }
+    .cart-qty-btn:hover:not(:disabled) { background: var(--border); }
+    .cart-qty-btn:disabled { opacity: 0.35; cursor: default; }
+    .cart-qty-btn.remove { border-color: #e74c3c; color: #e74c3c; }
+    .cart-qty-num { font-size: 13px; font-weight: 600; min-width: 18px; text-align: center; }
+    .cart-item-price { font-size: 13px; font-weight: 600; color: #27AE60; white-space: nowrap; min-width: 40px; text-align: right; }
+    .cart-swap-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 11px;
+      padding: 3px 8px;
+      color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .cart-swap-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .cart-modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .cart-total-label { color: var(--text2); }
+    .cart-total-value { font-size: 15px; font-weight: 700; color: #27AE60; }
+    .cart-empty { text-align: center; color: var(--text2); padding: 32px 0; font-size: 14px; }
+    .cart-loading { text-align: center; color: var(--text2); padding: 24px 0; font-size: 13px; }
+    .action-btn.zepto_search {
+      color: #27AE60;
+      border-color: #27AE60;
+      font-weight: 600;
+    }
+    .zepto-connect-btn {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      color: var(--text2);
+      font-size: 12px;
+      padding: 6px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .zepto-connect-btn.connected {
+      color: #27AE60;
+      border-color: #27AE60;
+    }
+    .zepto-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 400;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0 0 calc(env(safe-area-inset-bottom) + 16px);
+    }
+    .zepto-modal {
+      background: var(--surface);
+      border-radius: 16px 16px 0 0;
+      width: 100%;
+      max-width: 720px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 20px 16px;
+    }
+    .zepto-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .zepto-modal-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .zepto-modal-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: var(--text2);
+      cursor: pointer;
+      padding: 4px;
+    }
+    .zepto-item-row {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .zepto-item-row:last-child { border-bottom: none; }
+    .zepto-item-query {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .zepto-product-options {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .zepto-product-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      text-align: left;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+      transition: border-color 0.15s;
+    }
+    .zepto-product-option.selected {
+      border-color: #27AE60;
+      background: rgba(39, 174, 96, 0.08);
+    }
+    .zepto-product-option:hover:not(.selected) { border-color: var(--accent); }
+    .zepto-product-price {
+      font-size: 12px;
+      color: var(--text2);
+      white-space: nowrap;
+      margin-left: 8px;
+    }
+    .zepto-qty-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .zepto-qty-label {
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .zepto-qty-btn {
+      width: 28px;
+      height: 28px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .zepto-qty-btn:hover { border-color: var(--accent); }
+    .zepto-item-qty {
+      width: 42px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 6px;
+      font-size: 14px;
+      text-align: center;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .zepto-no-results {
+      font-size: 13px;
+      color: var(--text2);
+      font-style: italic;
+      padding: 6px 0;
+    }
+    .zepto-not-found {
+      font-size: 12px;
+      color: #c0392b;
+      padding: 8px 0 0;
+    }
+    .zepto-confirm-btn {
+      width: 100%;
+      margin-top: 14px;
+      background: #27AE60;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .zepto-confirm-btn:disabled { opacity: 0.45; }
+    .zepto-status {
+      font-size: 13px;
+      color: var(--text2);
+      text-align: center;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+    .zepto-status.error { color: #d94f4f; }
+    .zepto-status.ok { color: #27AE60; }
+    .zepto-search-err {
+      display: block;
+      color: #d94f4f;
+      font-size: 12px;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
+<!-- Auto-add toast (position:fixed, outside layout flow) -->
+<div class="auto-add-toast" id="auto-add-toast"></div>
+
+<!-- Zepto confirmation modal (position:fixed) -->
+<div class="zepto-modal-overlay" id="zepto-modal-overlay" style="display:none">
+  <div class="zepto-modal" id="zepto-modal">
+    <div class="zepto-modal-header">
+      <div class="zepto-modal-title">🛒 Add to Zepto Cart</div>
+      <button class="zepto-modal-close" id="zepto-modal-close">✕</button>
+    </div>
+    <div id="zepto-items-list"></div>
+    <button class="zepto-confirm-btn" id="zepto-confirm-btn">Add to Cart</button>
+    <div class="zepto-status" id="zepto-modal-status"></div>
+  </div>
+</div>
+
+<!-- Zepto cart modal (position:fixed) -->
+<div class="cart-modal-overlay" id="cart-modal-overlay">
+  <div class="cart-modal">
+    <div class="cart-modal-header">
+      <div class="cart-modal-title">🛒 Your Zepto Cart</div>
+      <button class="cart-modal-close" onclick="closeCartModal()">✕</button>
+    </div>
+    <div class="cart-modal-body" id="cart-modal-body">
+      <div class="cart-loading">Loading cart…</div>
+    </div>
+    <div class="cart-modal-footer" id="cart-modal-footer" style="display:none">
+      <span class="cart-total-label">Total</span>
+      <span class="cart-total-value" id="cart-total-value">₹0</span>
+    </div>
+  </div>
+</div>
+
+<!-- Camera stream overlay (position:fixed) -->
+<div class="camera-overlay" id="camera-overlay" style="display:none">
+  <video id="camera-video" autoplay playsinline></video>
+  <canvas id="camera-canvas"></canvas>
+  <div class="camera-controls" id="camera-controls-capture">
+    <button class="cam-btn secondary" id="cam-cancel">✕ Cancel</button>
+    <button class="cam-btn" id="cam-capture">Capture</button>
+  </div>
+  <div class="camera-controls" id="camera-controls-confirm" style="display:none">
+    <button class="cam-btn secondary" id="cam-retake">↩ Retake</button>
+    <button class="cam-btn" id="cam-use">Use Photo</button>
+  </div>
+</div>
+
+<!-- Swap sheet (position:fixed) -->
+<div id="swap-sheet" class="swap-sheet-overlay" style="display:none">
+  <div class="swap-sheet-inner">
+    <div class="swap-sheet-header">
+      <span id="swap-sheet-title">Swap item</span>
+      <button class="swap-close-btn" id="swap-close-btn">✕</button>
+    </div>
+    <div id="swap-sheet-results"></div>
+  </div>
+</div>
+
 <div class="app">
 
-  <header>
-    <div>
-      <div class="logo">CORTEX</div>
-      <div class="tagline">Capture everything. Corty classifies.</div>
-    </div>
-  </header>
+  <!-- ── Static top area ── -->
+  <div class="page-top">
 
-  <!-- Capture box -->
-  <div class="capture-wrap">
-    <div class="capture-hint">
-      Paste a URL, a <code>URL keyword</code>, or any text. Corty handles the rest.
+    <header>
+      <div>
+        <div class="logo">CORTEX</div>
+        <div class="tagline">Capture everything. Corty classifies.</div>
+      </div>
+      <button class="zepto-connect-btn" id="zepto-connect-btn" title="Connect Zepto for cart">🛒 Zepto</button>
+    </header>
+
+    <!-- Zepto address bar — visible only when connected -->
+    <div class="zepto-addr-bar" id="zepto-addr-bar">
+      <span class="zepto-addr-label">📍 Delivering to:</span>
+      <select id="zepto-addr-select" class="zepto-addr-select">
+        <option value="">Loading addresses…</option>
+      </select>
+      <button class="zepto-view-cart-btn" id="zepto-view-cart-btn" onclick="openCartModal()">🛒 View Cart</button>
     </div>
-    <textarea id="capture-box" placeholder="https://linkedin.com/jobs/123 — or — 'Remind me to call Vikas Thursday 4pm' — or — 'https://substack.com/p/... AI'"></textarea>
-    <div class="capture-footer">
-      <span class="capture-tip">⌘ + Enter to capture</span>
-      <button id="capture-btn">Capture</button>
-    </div>
-    <div class="image-preview-wrap" id="image-preview-wrap">
-      <img id="image-preview-thumb" src="" alt="preview">
-      <div class="image-preview-info" id="image-preview-info">Image ready</div>
-      <button class="image-preview-clear" id="image-preview-clear" title="Remove image">✕</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;position:relative">
-      <div style="position:relative">
-        <button id="camera-icon-btn" title="Capture image" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px;color:var(--text2);line-height:1">📷</button>
-        <div class="camera-popup" id="camera-popup" style="display:none">
-          <div class="camera-popup-option" id="open-camera-opt">
-            <span class="option-icon">📷</span><span>Open Camera</span>
-          </div>
-          <div class="camera-popup-option" id="open-gallery-opt">
-            <span class="option-icon">🖼️</span><span>Upload from Gallery</span>
+    <div class="zepto-addr-subtext" id="zepto-addr-subtext"></div>
+
+    <!-- Capture box -->
+    <div class="capture-wrap">
+      <div class="capture-hint">
+        Paste a URL, a <code>URL keyword</code>, or any text. Corty handles the rest.
+      </div>
+      <textarea id="capture-box" placeholder="https://linkedin.com/jobs/123 — or — 'Remind me to call Vikas Thursday 4pm' — or — 'https://substack.com/p/... AI'"></textarea>
+      <div class="capture-footer">
+        <span class="capture-tip">⌘ + Enter to capture</span>
+        <button id="capture-btn">Capture</button>
+      </div>
+      <div class="image-preview-wrap" id="image-preview-wrap">
+        <img id="image-preview-thumb" src="" alt="preview">
+        <div class="image-preview-info" id="image-preview-info">Image ready</div>
+        <button class="image-preview-clear" id="image-preview-clear" title="Remove image">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;position:relative">
+        <div style="position:relative">
+          <button id="camera-icon-btn" title="Capture image" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px;color:var(--text2);line-height:1">📷</button>
+          <div class="camera-popup" id="camera-popup" style="display:none">
+            <div class="camera-popup-option" id="open-camera-opt">
+              <span class="option-icon">📷</span><span>Open Camera</span>
+            </div>
+            <div class="camera-popup-option" id="open-gallery-opt">
+              <span class="option-icon">🖼️</span><span>Upload from Gallery</span>
+            </div>
           </div>
         </div>
       </div>
+      <div class="capture-status" id="capture-status"></div>
     </div>
-    <div class="capture-status" id="capture-status"></div>
-  </div>
 
-  <!-- Hidden file input for gallery -->
-  <input type="file" id="gallery-input" accept="image/*" style="display:none">
-  <!-- Hidden file input for native camera (HTTP fallback — no getUserMedia needed) -->
-  <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
+    <!-- Hidden file inputs -->
+    <input type="file" id="gallery-input" accept="image/*" style="display:none">
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
 
-  <!-- Camera stream overlay -->
-  <div class="camera-overlay" id="camera-overlay" style="display:none">
-    <video id="camera-video" autoplay playsinline></video>
-    <canvas id="camera-canvas"></canvas>
-    <div class="camera-controls" id="camera-controls-capture">
-      <button class="cam-btn secondary" id="cam-cancel">✕ Cancel</button>
-      <button class="cam-btn" id="cam-capture">Capture</button>
+    <!-- Tabs -->
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-type="">All</button>
+      <button class="tab" data-type="job_application">💼 Jobs</button>
+      <button class="tab" data-type="food_for_thought">🍽️ Food for Thought</button>
+      <button class="tab" data-type="build_better">🔨 Product Craft</button>
+      <button class="tab" data-type="learning">🧠 Learnings</button>
+      <button class="tab" data-type="interview_exp">🎯 Interviews</button>
+      <button class="tab" data-type="reminder">⏰ Reminders <span class="badge" id="reminder-badge" style="display:none"></span></button>
+      <button class="tab" data-type="product_idea">💡 Ideas</button>
+      <button class="tab" data-type="general_note">📝 Notes</button>
+      <button class="tab" data-type="shopping_list">🛒 Shopping</button>
+      <button class="tab" data-type="unknown" id="tab-unknown" style="color:#b86c0e;border-color:#d4a017">? Unsorted <span class="badge" id="unsorted-badge" style="display:none;background:#d4a017"></span></button>
+      <!-- Dynamic Corty-created types inserted here by JS -->
     </div>
-    <div class="camera-controls" id="camera-controls-confirm" style="display:none">
-      <button class="cam-btn secondary" id="cam-retake">↩ Retake</button>
-      <button class="cam-btn" id="cam-use">Use Photo</button>
+
+    <!-- Feed toolbar -->
+    <div class="feed-toolbar">
+      <label class="archived-toggle" title="Toggle to see only archived items">
+        <input type="checkbox" id="archived-only-toggle">
+        <span>See Archived Only</span>
+      </label>
+    </div>
+
+  </div><!-- /.page-top -->
+
+  <!-- ── Scrollable feed ── -->
+  <div id="feed-container">
+    <div id="feed-live"><div class="loading">Loading…</div></div>
+    <div id="feed-archived-wrap" style="display:none">
+      <div class="archived-divider"><span>Archived</span></div>
+      <div id="feed-archived"></div>
     </div>
   </div>
-
-  <!-- Tabs -->
-  <div class="tabs" id="tabs">
-    <button class="tab active" data-type="">All</button>
-    <button class="tab" data-type="job_application">💼 Jobs</button>
-    <button class="tab" data-type="food_for_thought">🍽️ Food for Thought</button>
-    <button class="tab" data-type="build_better">🔨 Product Craft</button>
-    <button class="tab" data-type="learning">🧠 Learnings</button>
-    <button class="tab" data-type="interview_exp">🎯 Interviews</button>
-    <button class="tab" data-type="reminder">⏰ Reminders <span class="badge" id="reminder-badge" style="display:none"></span></button>
-    <button class="tab" data-type="product_idea">💡 Ideas</button>
-    <button class="tab" data-type="general_note">📝 Notes</button>
-    <button class="tab" data-type="unknown" id="tab-unknown" style="color:#b86c0e;border-color:#d4a017">? Unsorted <span class="badge" id="unsorted-badge" style="display:none;background:#d4a017"></span></button>
-    <!-- Dynamic Corty-created types inserted here by JS -->
-  </div>
-
-  <!-- Feed -->
-  <div id="feed"><div class="loading">Loading…</div></div>
 
 </div>
 
 <script>
   const $ = id => document.getElementById(id);
   let activeType = '';
+  let _archivedOnlyMode = false;
 
   // ── Tab switching ──
   $('tabs').addEventListener('click', e => {
@@ -581,6 +1135,7 @@
     tab.classList.add('active');
     activeType = tab.dataset.type;
     loadFeed();
+    loadArchivedFeed();
   });
 
   // ── Capture ──
@@ -626,9 +1181,18 @@
         setStatus(`✓ ${count} items captured: ${summary}`, 'ok');
       }
 
-      cards.forEach(card => {
-        if (!activeType || activeType === card.type) prependCard(card);
-      });
+      for (const card of cards) {
+        const isShoppingList = card.type === 'shopping_list';
+        const zeptoConnected = !!($('zepto-connect-btn') &&
+          $('zepto-connect-btn').classList.contains('connected'));
+
+        if (isShoppingList && zeptoConnected) {
+          // Auto-add: don't put in live feed — it goes straight to archive on success
+          await _triggerAutoAdd(card);
+        } else {
+          if (!activeType || activeType === card.type) prependCard(card);
+        }
+      }
 
       refreshCounts();
     } catch(e) {
@@ -646,33 +1210,60 @@
 
   // ── Feed ──
   async function loadFeed() {
-    $('feed').innerHTML = '<div class="loading">Loading…</div>';
+    $('feed-live').innerHTML = '<div class="loading">Loading…</div>';
     const url = '/api/feed' + (activeType ? '?type=' + activeType : '');
     try {
       const data = await fetch(url).then(r => r.json());
       updateReminderBadgeFrom(data.reminder_badge);
-      $('feed').innerHTML = '';
+      $('feed-live').innerHTML = '';
       if (data.grouped) {
         renderGrouped(data.groups);
       } else {
         renderFlat(data.cards);
       }
     } catch(e) {
-      $('feed').innerHTML = '<div class="empty">Failed to load.<br>Check your connection and refresh.</div>';
+      $('feed-live').innerHTML = '<div class="empty">Failed to load.<br>Check your connection and refresh.</div>';
+    }
+  }
+
+  async function loadArchivedFeed() {
+    const wrap = $('feed-archived-wrap');
+    const container = $('feed-archived');
+    container.innerHTML = '<div class="loading" style="padding:16px 0">Loading…</div>';
+    const url = '/api/feed/archived' + (activeType ? '?type=' + activeType : '');
+    try {
+      const data = await fetch(url).then(r => r.json());
+      const cards = data.cards || [];
+      container.innerHTML = '';
+      if (cards.length) {
+        cards.forEach(c => {
+          const el = makeCard(c);
+          el.classList.add('archived-card');
+          container.appendChild(el);
+        });
+        wrap.style.display = '';
+      } else {
+        wrap.style.display = _archivedOnlyMode ? '' : 'none';
+        if (_archivedOnlyMode) {
+          container.innerHTML = '<div class="empty">No archived items yet.</div>';
+        }
+      }
+    } catch(e) {
+      container.innerHTML = '<div class="empty">Failed to load archived items.</div>';
     }
   }
 
   function renderFlat(cards) {
     if (!cards || !cards.length) {
-      $('feed').innerHTML = '<div class="empty">Nothing here yet.<br>Paste something above to get started.</div>';
+      $('feed-live').innerHTML = '<div class="empty">Nothing here yet.<br>Paste something above to get started.</div>';
       return;
     }
-    cards.forEach(c => $('feed').appendChild(makeCard(c)));
+    cards.forEach(c => $('feed-live').appendChild(makeCard(c)));
   }
 
   function renderGrouped(groups) {
     if (!groups || !groups.length) {
-      $('feed').innerHTML = '<div class="empty">Nothing here yet.<br>Paste a URL with a keyword above.</div>';
+      $('feed-live').innerHTML = '<div class="empty">Nothing here yet.<br>Paste a URL with a keyword above.</div>';
       return;
     }
     groups.forEach(g => {
@@ -683,15 +1274,25 @@
       inner.className = 'topic-cards';
       g.cards.forEach(c => inner.appendChild(makeCard(c)));
       div.appendChild(inner);
-      $('feed').appendChild(div);
+      $('feed-live').appendChild(div);
     });
   }
 
   function prependCard(card) {
-    const feed = $('feed');
+    const feed = $('feed-live');
     const empty = feed.querySelector('.empty');
     if (empty) empty.remove();
     feed.insertBefore(makeCard(card), feed.firstChild);
+  }
+
+  function prependArchivedCard(card) {
+    const container = $('feed-archived');
+    const empty = container.querySelector('.empty');
+    if (empty) empty.remove();
+    const el = makeCard(card);
+    el.classList.add('archived-card');
+    container.insertBefore(el, container.firstChild);
+    $('feed-archived-wrap').style.display = '';
   }
 
   function makeCard(card) {
@@ -743,6 +1344,40 @@
       body.appendChild(sub);
     }
 
+    // Auto-add results block: shows on archived shopping_list cards with stored results
+    if (card.archived && card.type === 'shopping_list') {
+      const autoResults = card.metadata && card.metadata.auto_add_results;
+      const addedResults = (autoResults || []).filter(r => r.added);
+      if (addedResults.length) {
+        const resultsDiv = document.createElement('div');
+        resultsDiv.className = 'auto-add-results';
+        addedResults.forEach(r => {
+          const row = document.createElement('div');
+          row.className = 'auto-add-result-row';
+          row.dataset.pvid = r.pvid || '';
+          row.dataset.spid = r.spid || '';
+          row.dataset.token = r.token || '';
+          row.innerHTML =
+            `<span class="auto-add-check">✓</span>` +
+            `<span class="auto-add-token">${esc(r.token || '')}</span>` +
+            `<span class="auto-add-arrow">→</span>` +
+            `<span class="auto-add-product">${esc(r.product_name || '?')}</span>`;
+          if (r.pvid) {
+            const swapBtn = document.createElement('button');
+            swapBtn.className = 'swap-btn';
+            swapBtn.textContent = 'Swap ↻';
+            swapBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openSwapSheet(card.id, r.token || '', r.pvid, row);
+            });
+            row.appendChild(swapBtn);
+          }
+          resultsDiv.appendChild(row);
+        });
+        body.appendChild(resultsDiv);
+      }
+    }
+
     if (card.tags && card.tags.length) {
       const tagsEl = document.createElement('div');
       tagsEl.className = 'card-tags';
@@ -790,6 +1425,10 @@
       } else if (action === 'extract_reminder') {
         btn.textContent = '⏰ Extract Reminder';
         btn.addEventListener('click', () => extractReminder(card, el));
+      } else if (action === 'zepto_search') {
+        btn.textContent = '🛒 Search Zepto';
+        btn.className = 'action-btn zepto_search';
+        btn.addEventListener('click', () => startZeptoSearch(card.id, btn));
       }
       actions.appendChild(btn);
     });
@@ -804,7 +1443,11 @@
     await fetch(`/api/capture/${id}/archive`, {method: 'POST'});
     el.style.opacity = '0';
     el.style.transition = 'opacity 0.2s';
-    setTimeout(() => el.remove(), 200);
+    setTimeout(() => {
+      el.remove();
+      // Re-fetch archived section so the card shows up there
+      loadArchivedFeed();
+    }, 220);
     refreshCounts();
   }
 
@@ -1156,12 +1799,655 @@
     }
   }
 
+  // ── Auto-add toast ──
+  let _toastTimer = null;
+  function showAutoAddToast(msg) {
+    const el = $('auto-add-toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+  }
+
+  // ── Swap sheet ──────────────────────────────────────────────────────────────
+  let _swapCtx = null; // {captureId, tokenQuery, oldPvid, resultRowEl, cartIdx}
+
+  async function openSwapSheet(captureId, tokenQuery, oldPvid, resultRowEl, cartIdx = -1) {
+    _swapCtx = {captureId, tokenQuery, oldPvid, resultRowEl, cartIdx};
+    $('swap-sheet-title').textContent = `Swap: ${tokenQuery}`;
+    $('swap-sheet-results').innerHTML = '<div class="loading" style="padding:16px 0">Searching…</div>';
+    $('swap-sheet').style.display = '';
+    try {
+      const data = await fetch('/api/zepto/search-simple', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({query: tokenQuery}),
+      }).then(r => r.json());
+      const products = (data.products || []).slice(0, 8);
+      if (!products.length) {
+        $('swap-sheet-results').innerHTML = '<div class="empty" style="padding:16px 0">No products found on Zepto.</div>';
+        return;
+      }
+      const container = document.createElement('div');
+      products.forEach(p => {
+        const isCurrent = p.pvid === oldPvid;
+        const row = document.createElement('div');
+        row.className = 'swap-product-row' + (isCurrent ? ' in-cart' : '');
+        const info = document.createElement('div');
+        info.className = 'swap-product-info';
+        info.innerHTML =
+          `<div class="swap-product-name">${esc(p.name)}</div>` +
+          `<div class="swap-product-meta">₹${esc(String(p.price))} · ${esc(p.size)}` +
+          (p.previously_bought ? ' · <span class="pb-badge">✓ Ordered before</span>' : '') +
+          `</div>`;
+        row.appendChild(info);
+        if (isCurrent) {
+          const badge = document.createElement('span');
+          badge.className = 'in-cart-badge';
+          badge.textContent = 'In cart';
+          row.appendChild(badge);
+        } else {
+          const btn = document.createElement('button');
+          btn.className = 'swap-pick-btn';
+          btn.textContent = 'Pick';
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = '…';
+            await doSwap(p.pvid, p.spid, p.name, p.price);
+            btn.disabled = false;
+            btn.textContent = 'Pick';
+          });
+          row.appendChild(btn);
+        }
+        container.appendChild(row);
+      });
+      $('swap-sheet-results').innerHTML = '';
+      $('swap-sheet-results').appendChild(container);
+    } catch(e) {
+      $('swap-sheet-results').innerHTML = '<div class="empty" style="padding:16px 0">Search failed.</div>';
+    }
+  }
+
+  function closeSwapSheet() {
+    $('swap-sheet').style.display = 'none';
+    _swapCtx = null;
+  }
+
+  async function doSwap(newPvid, newSpid, newProductName, newPrice) {
+    if (!_swapCtx) return;
+    const {captureId, tokenQuery, oldPvid, resultRowEl, cartIdx} = _swapCtx;
+    try {
+      const res = await fetch('/api/zepto/swap', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          old_pvid: oldPvid,
+          new_pvid: newPvid,
+          new_spid: newSpid,
+          capture_id: captureId,
+          new_product_name: newProductName,
+          token_query: tokenQuery,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setStatus('Swap failed: ' + (data.error || 'Unknown error'), 'error');
+        return;
+      }
+      // Update result row on archived card
+      if (resultRowEl) {
+        const productEl = resultRowEl.querySelector('.auto-add-product');
+        if (productEl) productEl.textContent = newProductName;
+        resultRowEl.dataset.pvid = newPvid;
+        resultRowEl.dataset.spid = newSpid;
+      }
+      // Update View Cart item
+      if (cartIdx >= 0 && cartIdx < _cartItems.length) {
+        const ci = _cartItems[cartIdx];
+        ci.name = newProductName;
+        ci.pvid = newPvid;
+        ci.spid = newSpid;
+        if (newPrice !== undefined) ci.price = parseFloat(newPrice) || ci.price;
+        _renderCartItems();
+      }
+      closeSwapSheet();
+      showAutoAddToast(`🔄 Swapped to: ${newProductName}`);
+    } catch(e) {
+      setStatus('Swap failed', 'error');
+    }
+  }
+
+  async function _triggerAutoAdd(card) {
+    const items = (card.metadata && card.metadata.items) || [];
+    const tokens = items.map(i => typeof i === 'object' ? i.name : String(i)).filter(Boolean);
+    if (!tokens.length) {
+      // Fallback: use raw input words
+      if (!activeType || activeType === card.type) prependCard(card);
+      return;
+    }
+
+    setStatus('Adding to Zepto cart…', '');
+    try {
+      const res = await fetch('/api/zepto/auto-add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          tokens,
+          capture_id: card.id,
+          address_id: _zeptoSelectedAddressId || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        // Failed — show card in live feed instead
+        if (!activeType || activeType === card.type) prependCard(card);
+        setStatus(data.error || 'Auto-add failed — card saved to live feed', 'error');
+        return;
+      }
+
+      const addedItems = (data.results || []).filter(r => r.added);
+      if (addedItems.length === 0) {
+        if (!activeType || activeType === card.type) prependCard(card);
+        setStatus('No items found on Zepto — card saved to live feed', '');
+        return;
+      }
+
+      // Success: show in archived section
+      if (data.archived) {
+        card.archived = true;
+        card.metadata = card.metadata || {};
+        card.metadata.auto_add_results = data.results || [];
+        if (!activeType || activeType === card.type || activeType === '') {
+          prependArchivedCard(card);
+        }
+        const names = addedItems.map(r => r.product_name).filter(Boolean).join(', ');
+        setStatus(`✓ Auto-added to Zepto cart`, 'ok');
+        showAutoAddToast(`🛒 Added to cart: ${names}`);
+      } else {
+        if (!activeType || activeType === card.type) prependCard(card);
+      }
+    } catch(e) {
+      if (!activeType || activeType === card.type) prependCard(card);
+      setStatus('Auto-add failed — card saved to live feed', 'error');
+    }
+  }
+
+  // ── Archived-only toggle ──
+  document.addEventListener('DOMContentLoaded', () => {
+    // Swap sheet close
+    const swapCloseBtn = $('swap-close-btn');
+    if (swapCloseBtn) swapCloseBtn.addEventListener('click', closeSwapSheet);
+    const swapSheet = $('swap-sheet');
+    if (swapSheet) swapSheet.addEventListener('click', (e) => { if (e.target === swapSheet) closeSwapSheet(); });
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggle = $('archived-only-toggle');
+    if (toggle) {
+      toggle.addEventListener('change', () => {
+        _archivedOnlyMode = toggle.checked;
+        const liveEl = $('feed-live');
+        if (_archivedOnlyMode) {
+          liveEl.style.display = 'none';
+          // Ensure archived wrap is visible even if empty
+          const wrap = $('feed-archived-wrap');
+          wrap.style.display = '';
+          const container = $('feed-archived');
+          if (!container.children.length) {
+            container.innerHTML = '<div class="empty">No archived items yet.</div>';
+          }
+        } else {
+          liveEl.style.display = '';
+          // Re-evaluate archived wrap visibility based on content
+          const container = $('feed-archived');
+          if (!container.children.length || container.querySelector('.empty')) {
+            $('feed-archived-wrap').style.display = 'none';
+          }
+        }
+      });
+    }
+  });
+
+  // ── Zepto ──
+  let _zeptoConfirmationToken = null;
+  let _zeptoConfirmationItems = [];
+  let _selectedProductIds = [];  // [{pvid, spid, name}] per item index
+  let _zeptoAddresses = [];      // [{id, name, address}]
+  let _zeptoSelectedAddressId = null;
+
+  // ── Address helpers ──
+
+  function _setZeptoAddress(id) {
+    _zeptoSelectedAddressId = id;
+    const sel = $('zepto-addr-select');
+    if (sel) sel.value = id;
+    const addr = _zeptoAddresses.find(a => a.id === id);
+    const sub = $('zepto-addr-subtext');
+    if (sub && addr) {
+      sub.textContent = addr.address.slice(0, 80) + (addr.address.length > 80 ? '…' : '');
+      sub.classList.add('visible');
+    }
+  }
+
+  function _populateAddressDropdown() {
+    const sel = $('zepto-addr-select');
+    if (!sel || !_zeptoAddresses.length) return;
+    sel.innerHTML = _zeptoAddresses.map(a =>
+      `<option value="${esc(a.id)}">${esc(a.name)}</option>`
+    ).join('');
+    // Default: first address whose name contains "home", else first
+    const homeAddr = _zeptoAddresses.find(a => a.name.toLowerCase().includes('home')) || _zeptoAddresses[0];
+    _setZeptoAddress(homeAddr.id);
+  }
+
+  async function loadZeptoAddresses() {
+    try {
+      const data = await fetch('/api/zepto/addresses').then(r => r.json());
+      _zeptoAddresses = (data.addresses || []);
+      if (!_zeptoAddresses.length) return;
+      _populateAddressDropdown();
+      $('zepto-addr-bar').classList.add('visible');
+    } catch(e) { /* silent — address bar stays hidden */ }
+  }
+
+  let _cartItems = [];        // [{name, price, qty, pvid, spid}]
+  let _cartUpdateTimer = null;
+
+  function _cartTotal() {
+    return _cartItems.reduce((s, i) => s + i.price * i.qty, 0);
+  }
+
+  function _renderCartItems() {
+    const body = $('cart-modal-body');
+    const footer = $('cart-modal-footer');
+    if (!_cartItems.length) {
+      body.innerHTML = '<div class="cart-empty">Your Zepto cart is empty.</div>';
+      footer.style.display = 'none';
+      return;
+    }
+    body.innerHTML = '';
+    _cartItems.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'cart-item-row';
+      row.dataset.idx = idx;
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'cart-item-name';
+      nameEl.textContent = item.name;
+
+      const controls = document.createElement('div');
+      controls.className = 'cart-item-controls';
+
+      const minusBtn = document.createElement('button');
+      minusBtn.className = 'cart-qty-btn' + (item.qty === 1 ? ' remove' : '');
+      minusBtn.title = item.qty === 1 ? 'Remove item' : 'Decrease';
+      minusBtn.textContent = item.qty === 1 ? '🗑' : '−';
+      minusBtn.addEventListener('click', () => cartChangeQty(idx, -1));
+
+      const qtyNum = document.createElement('span');
+      qtyNum.className = 'cart-qty-num';
+      qtyNum.textContent = item.qty;
+
+      const plusBtn = document.createElement('button');
+      plusBtn.className = 'cart-qty-btn';
+      plusBtn.title = 'Increase';
+      plusBtn.textContent = '+';
+      plusBtn.addEventListener('click', () => cartChangeQty(idx, 1));
+
+      controls.appendChild(minusBtn);
+      controls.appendChild(qtyNum);
+      controls.appendChild(plusBtn);
+
+      const priceEl = document.createElement('div');
+      priceEl.className = 'cart-item-price';
+      priceEl.textContent = '₹' + (item.price * item.qty).toFixed(0);
+
+      const swapBtn = document.createElement('button');
+      swapBtn.className = 'cart-swap-btn';
+      swapBtn.textContent = 'Swap ↻';
+      swapBtn.addEventListener('click', () => {
+        openSwapSheet(null, item.name, item.pvid, null, idx);
+      });
+
+      row.appendChild(nameEl);
+      row.appendChild(controls);
+      row.appendChild(priceEl);
+      row.appendChild(swapBtn);
+      body.appendChild(row);
+    });
+    $('cart-total-value').textContent = '₹' + _cartTotal().toFixed(0);
+    footer.style.display = 'flex';
+  }
+
+  function cartChangeQty(idx, delta) {
+    if (idx < 0 || idx >= _cartItems.length) return;
+    const item = _cartItems[idx];
+    const newQty = item.qty + delta;
+    if (newQty < 0) return;
+    if (newQty === 0) {
+      // Block removing the last item — Zepto MCP cannot clear a cart via update_cart.
+      if (_cartItems.length === 1) {
+        showAutoAddToast('⚠️ Open the Zepto app to empty your cart');
+        return;
+      }
+      _cartItems.splice(idx, 1);
+    } else {
+      item.qty = newQty;
+    }
+    _renderCartItems();
+    // Debounce the server call — wait 600ms after last change
+    clearTimeout(_cartUpdateTimer);
+    _cartUpdateTimer = setTimeout(_pushCartUpdate, 600);
+  }
+
+  async function _pushCartUpdate() {
+    _cartUpdateTimer = null;
+    if (_cartItems.length === 0) return; // no-op: Zepto rejects empty carts
+    const totalEl = $('cart-total-value');
+    const prev = totalEl ? totalEl.textContent : '';
+    if (totalEl) totalEl.textContent = '…';
+    try {
+      const resp = await fetch('/api/zepto/cart/update', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          items: _cartItems.map(i => ({pvid: i.pvid, spid: i.spid, qty: i.qty})),
+          address_id: _zeptoSelectedAddressId || null,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        if (totalEl) totalEl.textContent = prev;
+        if (data.error === 'cannot_clear_cart') {
+          showAutoAddToast('⚠️ Open the Zepto app to empty your cart');
+        } else {
+          showAutoAddToast('⚠️ Cart sync failed — try again');
+        }
+      } else {
+        if (totalEl) totalEl.textContent = '₹' + _cartTotal().toFixed(0);
+      }
+    } catch(e) {
+      if (totalEl) totalEl.textContent = prev;
+    }
+  }
+
+  async function openCartModal() {
+    const overlay = $('cart-modal-overlay');
+    const body = $('cart-modal-body');
+    const footer = $('cart-modal-footer');
+    overlay.classList.add('open');
+    body.innerHTML = '<div class="cart-loading">Fetching cart…</div>';
+    footer.style.display = 'none';
+    _cartItems = [];
+    try {
+      const params = _zeptoSelectedAddressId ? '?address_id=' + encodeURIComponent(_zeptoSelectedAddressId) : '';
+      const data = await fetch('/api/zepto/cart' + params).then(r => r.json());
+      if (data.error) {
+        body.innerHTML = `<div class="cart-empty">⚠️ ${esc(data.error)}</div>`;
+        return;
+      }
+      _cartItems = data.items || [];
+      _renderCartItems();
+    } catch(e) {
+      body.innerHTML = '<div class="cart-empty">Failed to load cart. Try again.</div>';
+    }
+  }
+
+  function closeCartModal() {
+    // Flush any pending cart sync before closing — don't silently discard removals.
+    if (_cartUpdateTimer !== null) {
+      clearTimeout(_cartUpdateTimer);
+      _cartUpdateTimer = null;
+      if (_cartItems.length > 0) {
+        _pushCartUpdate();  // fire immediately; don't wait for debounce
+      }
+    }
+    $('cart-modal-overlay').classList.remove('open');
+  }
+
+  async function checkZeptoStatus() {
+    try {
+      const data = await fetch('/api/zepto/status').then(r => r.json());
+      const btn = $('zepto-connect-btn');
+      if (data.connected) {
+        btn.textContent = '🛒 Zepto ✓';
+        btn.classList.add('connected');
+        btn.title = 'Zepto connected — click to disconnect';
+        btn.onclick = disconnectZepto;
+        if (!_zeptoAddresses.length) loadZeptoAddresses();
+      } else {
+        btn.textContent = '🛒 Connect Zepto';
+        btn.classList.remove('connected');
+        btn.title = 'Connect Zepto to add items to cart';
+        btn.onclick = connectZepto;
+        $('zepto-addr-bar').classList.remove('visible');
+        const sub = $('zepto-addr-subtext');
+        if (sub) sub.classList.remove('visible');
+      }
+    } catch(e) { /* silent */ }
+  }
+
+  async function connectZepto() {
+    try {
+      const data = await fetch('/api/zepto/init').then(r => r.json());
+      if (data.auth_url) window.location.href = data.auth_url;
+      else setStatus(data.error || 'Zepto connect failed', 'error');
+    } catch(e) {
+      setStatus('Zepto connect failed — try again', 'error');
+    }
+  }
+
+  // Address dropdown manual override + cart modal close
+  document.addEventListener('DOMContentLoaded', () => {
+    const sel = $('zepto-addr-select');
+    if (sel) sel.addEventListener('change', () => _setZeptoAddress(sel.value));
+    $('cart-modal-overlay').addEventListener('click', e => {
+      if (e.target === $('cart-modal-overlay')) closeCartModal();
+    });
+  });
+
+  async function disconnectZepto() {
+    if (!confirm('Disconnect Zepto? You will need to re-authorize to use cart features.')) return;
+    await fetch('/api/zepto/disconnect', {method: 'POST'});
+    checkZeptoStatus();
+    setStatus('Zepto disconnected', '');
+  }
+
+  function _zeptoSearchErr(btn, msg) {
+    btn.parentNode.querySelectorAll('.zepto-search-err').forEach(e => e.remove());
+    const err = document.createElement('span');
+    err.className = 'zepto-search-err';
+    err.textContent = msg;
+    btn.parentNode.appendChild(err);
+    setTimeout(() => err.remove(), 5000);
+  }
+
+  async function startZeptoSearch(captureId, btn) {
+    const zeptoData = await fetch('/api/zepto/status').then(r => r.json()).catch(() => ({}));
+    if (!zeptoData.connected) {
+      if (confirm('Connect Zepto to add items to cart?')) connectZepto();
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Searching…';
+    btn.parentNode.querySelectorAll('.zepto-search-err').forEach(e => e.remove());
+    try {
+      const res = await fetch('/api/zepto/search', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({capture_id: captureId, address_id: _zeptoSelectedAddressId || null}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        _zeptoSearchErr(btn, data.error || 'Search failed');
+        return;
+      }
+      if (!data.confirmation_items || !data.confirmation_items.length) {
+        _zeptoSearchErr(btn, 'No items found on Zepto');
+        return;
+      }
+      openZeptoModal(data);
+    } catch(e) {
+      _zeptoSearchErr(btn, 'Zepto search failed — try again');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🛒 Search Zepto';
+    }
+  }
+
+  function openZeptoModal(data) {
+    _zeptoConfirmationToken = data.confirmation_token;
+    _zeptoConfirmationItems = data.confirmation_items;
+    _selectedProductIds = [];
+
+    const list = $('zepto-items-list');
+    list.innerHTML = '';
+
+    _zeptoConfirmationItems.forEach((item, idx) => {
+      const best = item.selected_product || {};
+      const alts = item.alternatives || [];
+      const allProducts = (best.pvid ? [best] : []).concat(alts);
+
+      // Pre-select first product
+      _selectedProductIds[idx] = allProducts.length
+        ? {pvid: allProducts[0].pvid || '', spid: allProducts[0].spid || '', name: allProducts[0].name || ''}
+        : {pvid: '', spid: '', name: ''};
+
+      const row = document.createElement('div');
+      row.className = 'zepto-item-row';
+
+      let optionsHTML;
+      if (allProducts.length) {
+        optionsHTML = allProducts.map((p, pi) => {
+          const pvid = esc(p.pvid || '');
+          const spid = esc(p.spid || '');
+          const pname = esc(p.name || 'Unknown product');
+          const pprice = p.price ? esc('₹' + p.price) : '';
+          const psize = p.size ? ` (${esc(p.size)})` : '';
+          const prevBadge = p.previously_bought ? ' <span style="color:#27AE60;font-size:11px">✓ prev</span>' : '';
+          const sel = pi === 0 ? ' selected' : '';
+          return `<button class="zepto-product-option${sel}" data-idx="${idx}" data-pvid="${pvid}" data-spid="${spid}" data-name="${pname}">
+            <span>${pname}${psize}${prevBadge}</span>${pprice ? `<span class="zepto-product-price">${pprice}</span>` : ''}
+          </button>`;
+        }).join('');
+      } else {
+        optionsHTML = `<div class="zepto-no-results">No results found on Zepto</div>`;
+      }
+
+      row.innerHTML = `
+        <div class="zepto-item-query">🛒 ${esc(item.query)}</div>
+        <div class="zepto-product-options">${optionsHTML}</div>
+        <div class="zepto-qty-row">
+          <span class="zepto-qty-label">Qty</span>
+          <button class="zepto-qty-btn zepto-qty-dec" data-idx="${idx}">−</button>
+          <input class="zepto-item-qty" type="number" min="1" max="20" value="${item.quantity || 1}" data-idx="${idx}">
+          <button class="zepto-qty-btn zepto-qty-inc" data-idx="${idx}">+</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+
+    // Delegated handler for product selection and qty controls
+    list.onclick = e => {
+      const opt = e.target.closest('.zepto-product-option');
+      const dec = e.target.closest('.zepto-qty-dec');
+      const inc = e.target.closest('.zepto-qty-inc');
+      if (opt) {
+        const idx = parseInt(opt.dataset.idx, 10);
+        opt.closest('.zepto-product-options').querySelectorAll('.zepto-product-option').forEach(b => b.classList.remove('selected'));
+        opt.classList.add('selected');
+        _selectedProductIds[idx] = {pvid: opt.dataset.pvid, spid: opt.dataset.spid, name: opt.dataset.name};
+      } else if (dec || inc) {
+        const btn = dec || inc;
+        const idx = parseInt(btn.dataset.idx, 10);
+        const input = list.querySelector(`.zepto-item-qty[data-idx="${idx}"]`);
+        if (!input) return;
+        let v = parseInt(input.value, 10) || 1;
+        v = dec ? Math.max(1, v - 1) : Math.min(20, v + 1);
+        input.value = v;
+      }
+    };
+
+    if (data.not_found && data.not_found.length) {
+      const nf = document.createElement('div');
+      nf.className = 'zepto-not-found';
+      nf.textContent = 'Not found on Zepto: ' + data.not_found.join(', ');
+      list.appendChild(nf);
+    }
+
+    $('zepto-modal-status').textContent = '';
+    $('zepto-modal-status').className = 'zepto-status';
+    $('zepto-confirm-btn').disabled = false;
+    $('zepto-confirm-btn').textContent = 'Add to Cart';
+    $('zepto-modal-overlay').style.display = '';
+  }
+
+  $('zepto-modal-close').addEventListener('click', () => {
+    $('zepto-modal-overlay').style.display = 'none';
+  });
+  $('zepto-modal-overlay').addEventListener('click', e => {
+    if (e.target === $('zepto-modal-overlay')) $('zepto-modal-overlay').style.display = 'none';
+  });
+
+  $('zepto-confirm-btn').addEventListener('click', async () => {
+    if (!_zeptoConfirmationToken) return;
+
+    const itemsList = $('zepto-items-list');
+    const products = _selectedProductIds.map((p, i) => {
+      const input = itemsList.querySelector(`.zepto-item-qty[data-idx="${i}"]`);
+      const qty = input ? (parseInt(input.value, 10) || 1) : 1;
+      return {idx: i, pvid: p.pvid, spid: p.spid, quantity: qty};
+    }).filter(p => p.pvid && p.spid);
+
+    $('zepto-confirm-btn').disabled = true;
+    $('zepto-confirm-btn').textContent = 'Adding…';
+
+    try {
+      const res = await fetch('/api/zepto/cart-add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          confirmation_token: _zeptoConfirmationToken,
+          products: products,
+          address_id: _zeptoSelectedAddressId || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setZeptoStatus(data.error || 'Cart add failed', 'error');
+        return;
+      }
+      const added = data.added ? data.added.length : 0;
+      const failed = data.failed ? data.failed.length : 0;
+      if (failed === 0) {
+        setZeptoStatus(`✓ ${added} item${added !== 1 ? 's' : ''} added to Zepto cart!`, 'ok');
+        setTimeout(() => { $('zepto-modal-overlay').style.display = 'none'; }, 1800);
+      } else {
+        setZeptoStatus(`${added} added, ${failed} failed. Check Zepto app.`, 'error');
+      }
+    } catch(e) {
+      setZeptoStatus('Network error — try again', 'error');
+    } finally {
+      $('zepto-confirm-btn').disabled = false;
+      $('zepto-confirm-btn').textContent = 'Add to Cart';
+    }
+  });
+
+  function setZeptoStatus(msg, cls) {
+    const el = $('zepto-modal-status');
+    el.textContent = msg;
+    el.className = 'zepto-status' + (cls ? ' ' + cls : '');
+  }
+
   // ── Init ──
   loadFeed();
+  loadArchivedFeed();
   refreshCounts();
   loadDynamicTypes();
+  checkZeptoStatus();
   setInterval(refreshCounts, 60000);
-  setInterval(loadDynamicTypes, 300000); // refresh dynamic tabs every 5 min
+  setInterval(loadDynamicTypes, 300000);
 </script>
 </body>
 </html>

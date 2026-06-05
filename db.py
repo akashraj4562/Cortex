@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import json
+import uuid
 from datetime import date
 from config import DB_PATH
 
@@ -13,6 +14,7 @@ _SEED_TYPES = [
     ("reminder", "Reminder", "⏰", "#E8834A", "Time-sensitive task, deadline, or to-do.", 1),
     ("product_idea", "Idea", "💡", "#8E44AD", "A concrete product or feature idea to build or explore.", 1),
     ("general_note", "Note", "📝", "#5A9E6F", "Anything that doesn't fit another type — reference later.", 1),
+    ("shopping_list", "Shopping List", "🛒", "#27AE60", "A grocery or shopping list to add to Zepto cart.", 1),
     # Special staging type — not a seed, not user-created
     ("unknown", "Unsorted", "?", "#9B9B9B", "Captures awaiting classification.", 0),
     # Legacy types for backward-compat display of old entries
@@ -105,6 +107,36 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_type    ON captures(content_type);
             CREATE INDEX IF NOT EXISTS idx_created ON captures(created_at);
             CREATE INDEX IF NOT EXISTS idx_active  ON captures(archived, completed);
+
+            CREATE TABLE IF NOT EXISTS external_credentials (
+                service      TEXT      PRIMARY KEY,
+                access_token BLOB      NOT NULL,
+                token_type   TEXT      NOT NULL DEFAULT 'bearer',
+                expires_at   TIMESTAMP,
+                created_at   TIMESTAMP DEFAULT (datetime('now')),
+                updated_at   TIMESTAMP DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS pending_cart_ops (
+                token       TEXT      PRIMARY KEY,
+                items_json  TEXT      NOT NULL,
+                created_at  TIMESTAMP DEFAULT (datetime('now')),
+                expires_at  TIMESTAMP NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS zepto_oauth_states (
+                state         TEXT PRIMARY KEY,
+                code_verifier TEXT NOT NULL,
+                created_at    TIMESTAMP DEFAULT (datetime('now')),
+                expires_at    TIMESTAMP NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS events (
+                id           INTEGER   PRIMARY KEY AUTOINCREMENT,
+                event_type   TEXT      NOT NULL,
+                payload_json TEXT      NOT NULL DEFAULT '{}',
+                created_at   TIMESTAMP DEFAULT (datetime('now'))
+            );
         """)
 
         # Migration: add new columns to existing tables that lack them
@@ -217,9 +249,32 @@ def get_capture(capture_id):
         return _row_to_card(row) if row else None
 
 
+def get_archived_captures(content_type=None):
+    """Return archived captures ordered by most recently archived (created_at desc)."""
+    with get_conn() as conn:
+        conditions = ["archived = 1"]
+        params = []
+        if content_type:
+            conditions.append("content_type = ?")
+            params.append(content_type)
+        where = "WHERE " + " AND ".join(conditions)
+        rows = conn.execute(
+            f"SELECT * FROM captures {where} ORDER BY created_at DESC", params
+        ).fetchall()
+        return [_row_to_card(r) for r in rows]
+
+
 def archive_capture(capture_id):
     with get_conn() as conn:
         conn.execute("UPDATE captures SET archived = 1 WHERE id = ?", (capture_id,))
+
+
+def update_capture_metadata(capture_id, metadata: dict):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE captures SET metadata = ? WHERE id = ?",
+            (json.dumps(metadata), capture_id),
+        )
 
 
 def complete_capture(capture_id):
@@ -250,6 +305,93 @@ def get_tab_counts():
                GROUP BY content_type"""
         ).fetchall()
         return {r["content_type"]: r["n"] for r in rows}
+
+
+def store_zepto_token(encrypted_token: bytes, expires_at=None):
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO external_credentials (service, access_token, expires_at, updated_at)
+               VALUES ('zepto', ?, ?, datetime('now'))
+               ON CONFLICT(service) DO UPDATE SET
+                 access_token = excluded.access_token,
+                 expires_at   = excluded.expires_at,
+                 updated_at   = datetime('now')""",
+            (encrypted_token, expires_at),
+        )
+
+
+def get_zepto_token():
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT access_token FROM external_credentials WHERE service = 'zepto'"
+        ).fetchone()
+        return bytes(row["access_token"]) if row else None
+
+
+def delete_zepto_token():
+    with get_conn() as conn:
+        conn.execute("DELETE FROM external_credentials WHERE service = 'zepto'")
+
+
+def store_oauth_state(state: str, code_verifier: str, ttl_seconds: int = 600):
+    """Persist PKCE state → code_verifier with TTL. Survives server restarts."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO zepto_oauth_states (state, code_verifier, expires_at) "
+            "VALUES (?, ?, datetime('now', ? || ' seconds'))",
+            (state, code_verifier, str(ttl_seconds)),
+        )
+
+
+def consume_oauth_state(state: str):
+    """Single-use: look up code_verifier for state, delete it, return it or None if missing/expired."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT code_verifier FROM zepto_oauth_states "
+            "WHERE state = ? AND expires_at > datetime('now')",
+            (state,),
+        ).fetchone()
+        if row is None:
+            return None
+        conn.execute("DELETE FROM zepto_oauth_states WHERE state = ?", (state,))
+        return row["code_verifier"]
+
+
+def create_pending_cart_op(items: list) -> str:
+    """Store pending cart items with 5-minute TTL. Returns the confirmation token."""
+    token = str(uuid.uuid4())
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO pending_cart_ops (token, items_json, expires_at)
+               VALUES (?, ?, datetime('now', '+5 minutes'))""",
+            (token, json.dumps(items)),
+        )
+    return token
+
+
+def consume_pending_cart_op(token: str):
+    """
+    Validate token, delete it, and return items. Returns None if missing or expired.
+    Single-use: deletes the token on first successful call.
+    """
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT items_json FROM pending_cart_ops
+               WHERE token = ? AND expires_at > datetime('now')""",
+            (token,),
+        ).fetchone()
+        if row is None:
+            return None
+        conn.execute("DELETE FROM pending_cart_ops WHERE token = ?", (token,))
+        return json.loads(row["items_json"])
+
+
+def log_event(event_type: str, payload: dict):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO events (event_type, payload_json) VALUES (?, ?)",
+            (event_type, json.dumps(payload)),
+        )
 
 
 def _row_to_card(row):
@@ -326,6 +468,13 @@ def _make_display_text(ct, metadata, raw_input):
         summary = (metadata.get("summary") or "")[:80]
         return title, summary
 
+    if ct == "shopping_list":
+        items = metadata.get("items", [])
+        title = metadata.get("title") or (f"{len(items)} items" if items else raw_input[:60])
+        item_names = [i.get("name", str(i)) if isinstance(i, dict) else str(i) for i in items[:3]]
+        subtitle = ", ".join(item_names) + ("…" if len(items) > 3 else "")
+        return title, subtitle
+
     if ct == "unknown":
         title = metadata.get("title") or raw_input[:60]
         return title, "Awaiting classification"
@@ -336,6 +485,11 @@ def _make_display_text(ct, metadata, raw_input):
 def _make_actions(ct, metadata, input_type="text"):
     if ct == "unknown":
         return ["assign", "archive"]
+    if ct == "shopping_list":
+        base = ["zepto_search", "archive"]
+        if input_type == "image":
+            base.insert(0, "view_image")
+        return base
     base = ["archive"]
     if ct in ("job_application", "food_for_thought", "build_better", "learning", "interview_exp") and metadata.get("url"):
         base.insert(0, "open_url")

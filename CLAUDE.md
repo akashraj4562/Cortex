@@ -106,3 +106,9 @@ CORTEX-specific learnings live in `cortex/docs/learnings/` (created by the Learn
 - **UX review:** "UX Designer: design the card for the new [type] content type. Include fallback when no URL is scraped."
 - **Phase 2 design:** "AI Engineer + PM: design the embedding architecture for Phase 2. What changes to the data model and classification pipeline?"
 - **Learning sync:** "Learning Manager: run back-propagation from CORTEX after [feature] retrospective."
+
+---
+
+## Hard rule — Destructive database operations
+
+Never run `seed`, `truncate`, `drop`, or any destructive database operation without explicit confirmation from the owner. No exceptions.

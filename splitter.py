@@ -37,6 +37,8 @@ def split_items(raw):
     chunks = re.split(r'\n\s*\n', raw)
     chunks = [c.strip() for c in chunks if c.strip()]
     if len(chunks) > 1:
+        if _looks_like_shopping_list(chunks):
+            return [raw]  # keep entire list as one capture for shopping_list classification
         chunks = _merge_url_keyword_pairs(chunks)
         if len(chunks) > 1:
             return _dedup_urls(chunks)
@@ -48,6 +50,61 @@ def split_items(raw):
         return _dedup_urls(lines)
 
     return [raw]
+
+
+_SENTENCE_WORDS = frozenset({
+    # Pronouns
+    'i', 'me', 'my', 'mine', 'we', 'our', 'you', 'your', 'he', 'him',
+    'his', 'she', 'her', 'they', 'them', 'it', 'its', 'this', 'that',
+    'these', 'those',
+    # Common verbs / copulas
+    'is', 'are', 'was', 'were', 'be', 'been', 'am', 'have', 'has', 'had',
+    'do', 'does', 'did', 'will', 'would', 'can', 'could',
+    'follow', 'remind', 'check', 'call', 'meet', 'review', 'update', 'sync',
+    'thought', 'think', 'seems', 'looks', 'feel', 'seems', 'sounds',
+    # Prepositions / conjunctions
+    'to', 'at', 'for', 'in', 'on', 'by', 'from', 'with', 'about', 'of',
+    'and', 'or', 'but', 'not', 'so', 'yet', 'if', 'then',
+    # Common adjectives that don't appear in grocery names
+    'good', 'bad', 'new', 'old', 'first', 'second', 'third',
+    'long', 'short', 'big', 'small', 'great', 'interesting', 'nice', 'cool',
+    # Generic/abstract nouns
+    'item', 'thing', 'stuff', 'idea', 'thought', 'job', 'task',
+})
+
+_QTY_RE = re.compile(
+    r'\b\d+\s*(?:kg|kgs|g|gm|gms|gram|grams|l|lt|ml|litre|liter|liters|litres'
+    r'|dozen|piece|pcs|pack|packs|bottle|bottles|box|boxes|bag|bags|lb|lbs|oz)\b',
+    re.IGNORECASE,
+)
+
+
+def _looks_like_shopping_list(chunks):
+    """
+    Return True when double-newline-split chunks look like a grocery list.
+    Two paths:
+    1. Any chunk has a quantity token (2kg, 500ml, 1 dozen...) → confident match.
+    2. No quantities: require ≥3 chunks all ≤3 words with no sentence-indicator words.
+    Also bails if any chunk contains common English sentence words (pronouns, verbs,
+    prepositions) that would never appear alone in a grocery item.
+    """
+    if len(chunks) < 2:
+        return False
+    # URLs are never grocery items
+    if any(re.match(r'^https?://', c) for c in chunks):
+        return False
+    # All chunks must be short
+    if not all(len(c.split()) <= 5 for c in chunks):
+        return False
+    # Any sentence-indicator word disqualifies the whole batch
+    for chunk in chunks:
+        if set(chunk.lower().split()) & _SENTENCE_WORDS:
+            return False
+    # Path 1: quantity token present → confident match
+    if any(_QTY_RE.search(c) for c in chunks):
+        return True
+    # Path 2: ≥3 very-short chunks (product-name-only items)
+    return len(chunks) >= 3 and all(len(c.split()) <= 3 for c in chunks)
 
 
 def _merge_url_keyword_pairs(chunks):

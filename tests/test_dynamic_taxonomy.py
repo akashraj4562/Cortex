@@ -47,7 +47,7 @@ class TestContentTypesDB(unittest.TestCase):
     def test_seed_types_count(self):
         with db.get_conn() as conn:
             n = conn.execute("SELECT COUNT(*) FROM content_types WHERE is_seed = 1").fetchone()[0]
-        self.assertEqual(n, 8)
+        self.assertEqual(n, 9)  # 8 original + shopping_list (PRD-003)
 
     def test_all_seed_keys_present(self):
         types = db.get_all_types()

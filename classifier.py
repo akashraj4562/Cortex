@@ -1,7 +1,7 @@
 import json
 import re
 import anthropic
-from config import ANTHROPIC_API_KEY, MODEL, KNOWN_PROJECTS, HIGH_CONFIDENCE, LOW_CONFIDENCE
+from config import ANTHROPIC_API_KEY, MODEL, HAIKU_MODEL, KNOWN_PROJECTS, HIGH_CONFIDENCE, LOW_CONFIDENCE
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -88,6 +88,7 @@ learning: "title": "", "topic": "skill area", "summary": "what Akash will learn"
 product_idea: "title": "5 words max", "project": "project name or New Idea", "core_insight": "", "one_liner": ""
 general_note: "title": "short title", "summary": "1-2 sentences"
 For any Corty-created type: "title": "short title", "summary": "1-2 sentences"
+shopping_list: "title": "short description", "items": ["item1", "item2", ...], "store_hint": "zepto|blinkit|null", "notes": ""
 
 Today: {today}
 Provide 2-4 relevant tags."""
@@ -137,6 +138,15 @@ Notes:
 - learning = skill-building (study and practice); build_better = PM strategy
 - For LinkedIn posts with no extra context → food_for_thought is the safe default
 - When uncertain between types → prefer food_for_thought over general_note
+- shopping_list disambiguation: classify as shopping_list when input is clearly about buying things.
+  HIGH CONFIDENCE (0.85+) cases — assign directly, never route to Unsorted:
+    • Any plain-text grocery/food/household item with no URL: "milk", "eggs", "bread", "tomatoes", "shampoo"
+    • ≥2 commerce-likely items in any form
+    • ≥1 quantity-token (e.g. "2kg", "1 dozen", "500ml", "3 bottles", "half kilo")
+    • Explicit list format: "- milk\n- eggs\n- onions"
+  Lower confidence only when there is genuine ambiguity (single word that could be a note title, etc.).
+  A shopping list is about buying things; a reminder is about doing something.
+  "milk" → shopping_list 0.90. "Buy milk and eggs" → shopping_list 0.95. "Buy milk for the party" → reminder (single item + occasion). "milk industry trends" → food_for_thought.
 
 If explicit_type is provided in the prompt, you MUST use it. Set confidence ≥ 0.90.
 topic_hint: when provided, use as the `topic` field. Capitalize it.
@@ -182,6 +192,9 @@ product_idea:
 general_note:
 {{"title": "short title inferred from content", "summary": "1-2 sentences"}}
 
+shopping_list:
+{{"title": "short list description", "items": ["item1", "item2", ...], "store_hint": "zepto|blinkit|null", "notes": "any special instructions"}}
+
 For any Corty-created type (not in the list above):
 {{"title": "short title", "summary": "1-2 sentences"}}
 
@@ -191,6 +204,10 @@ Provide 2-4 relevant tags."""
 
 # Excluded from the prompt type list (staging / legacy / system types)
 _PROMPT_EXCLUDED = {"unknown", "unclassified", "blog_post", "job_post"}
+
+# Types where a lower confidence threshold is acceptable (unambiguous domain)
+_LOW_THRESHOLD_TYPES = {"shopping_list", "reminder"}
+_LOW_THRESHOLD_CONFIDENCE = 0.55
 
 
 def _build_type_list():
@@ -204,18 +221,108 @@ def _build_type_list():
     return "\n".join(lines)
 
 
-def _compute_routing(confidence, suggested_new_type, explicit_type):
+def _tokenize_input(raw: str) -> list:
+    """
+    Split raw input into semantic tokens for similarity scoring.
+    "milk, eggs, bread" → ["milk", "eggs", "bread"]
+    "Remind me to call Vikas" → ["Remind me to call Vikas"]
+    """
+    tokens = re.split(r'[\n,;•\-]\s*', raw)
+    tokens = [t.strip() for t in tokens if t.strip()]
+    seen, result = set(), []
+    for t in tokens:
+        if t.lower() not in seen:
+            seen.add(t.lower())
+            result.append(t)
+    return result if result else [raw.strip()]
+
+
+_SIMILARITY_SYSTEM = """You are Corty, the CORTEX classification engine for a Senior Product Manager named Akash.
+
+You receive INPUT TOKENS extracted from the user's raw input, plus the full list of content types.
+
+## Your task
+Score the similarity of the input tokens to EACH content type (0.0–1.0), then pick the best match and extract structured metadata.
+
+## Similarity scoring rules
+- 0.85–1.0  Very clear match — tokens unambiguously belong to this type
+- 0.70–0.84  Strong match with minor ambiguity
+- 0.55–0.69  Plausible — several signals align
+- 0.20–0.54  Weak — few signals align
+- 0.00–0.19  No meaningful relationship
+
+## Critical scoring guidance
+shopping_list:
+  - A single grocery/food/household word with no URL → score 0.90+ (milk, eggs, bread, tomatoes, shampoo, onions, dal)
+  - ≥2 such items or any quantity-token (2kg, 500ml, 1 dozen) → score 0.95+
+  - "Buy X and Y" → score 0.95+
+  - "Buy X for the party" → reminder (has occasion), shopping_list score 0.30
+reminder:
+  - Has time component OR action verb + occasion → 0.85+
+  - "Call Vikas tomorrow", "submit by Friday" → 0.90+
+food_for_thought:
+  - Requires a URL or clear reference to an article/post/news
+  - Plain text with no URL → score 0.05 max
+learning / build_better / interview_exp:
+  - Requires a URL or explicit domain signal (framework name, course, tutorial)
+  - Plain grocery word → 0.02
+product_idea:
+  - Requires "idea", "build", or a product concept statement
+general_note:
+  - Catch-all; never score above 0.60 when another type fits better
+
+Suggested new type: if no type scores above 0.20, propose a new type.
+
+## Available types
+{type_list}
+
+Known projects for product_idea: {known_projects}
+
+## Metadata schemas (for the best_type)
+job_application: {{"company": "", "role": "", "location": "", "url": "", "seniority": ""}}
+food_for_thought: {{"title": "", "topic": "", "url": "", "summary": "", "source": ""}}
+build_better: {{"title": "", "topic": "", "url": "", "summary": ""}}
+learning: {{"title": "", "topic": "", "url": "", "summary": ""}}
+interview_exp: {{"title": "", "topic": "", "url": "", "summary": ""}}
+reminder: {{"task": "", "due_date": "YYYY-MM-DD or null", "priority": "high|medium|low", "recurrence": null}}
+product_idea: {{"title": "", "project": "project name or New Idea", "core_insight": "", "one_liner": ""}}
+general_note: {{"title": "", "summary": ""}}
+shopping_list: {{"title": "", "items": ["item1", ...], "store_hint": "zepto|blinkit|null", "notes": ""}}
+For any Corty-created type: {{"title": "", "summary": ""}}
+
+Today: {today}
+
+## Output
+Return ONLY valid JSON:
+{{
+  "scores": {{"type_key": 0.0, ...}},
+  "best_type": "type_key",
+  "confidence": 0.0,
+  "rationale": "one sentence",
+  "metadata": {{...}},
+  "tags": ["tag1", "tag2"],
+  "suggested_new_type": null
+}}
+
+When no type scores above 0.20, set suggested_new_type to:
+{{"key": "snake_case_key", "label": "Human Readable Label", "icon": "single emoji"}}
+
+Provide 2-4 relevant tags."""
+
+
+def _compute_routing(confidence, suggested_new_type, explicit_type, content_type=None):
     """
     Pure routing logic — no I/O, fully testable.
     Returns 'assign' | 'unknown' | 'new_type'.
+    Type-specific lower threshold for unambiguous domains (shopping_list, reminder).
     """
     if explicit_type:
         return "assign"
-    if confidence >= HIGH_CONFIDENCE:
+    threshold = _LOW_THRESHOLD_CONFIDENCE if content_type in _LOW_THRESHOLD_TYPES else HIGH_CONFIDENCE
+    if confidence >= threshold:
         return "assign"
     if confidence >= LOW_CONFIDENCE:
         return "unknown"
-    # Below LOW_CONFIDENCE
     if suggested_new_type and isinstance(suggested_new_type, dict) and suggested_new_type.get("key"):
         return "new_type"
     return "unknown"
@@ -320,6 +427,42 @@ def classify_image(base64_jpeg: str, media_type: str = "image/jpeg",
     return result
 
 
+_EXTRACT_ITEMS_SYSTEM = """Extract a structured shopping list from this text.
+Return ONLY valid JSON with no markdown fencing:
+{
+  "items": [
+    {"name": "item name normalized for search", "quantity": "amount with unit or null", "notes": "any special notes or null"}
+  ]
+}
+Normalize item names for grocery search (e.g. "2 kgs of tomatoes" -> name: "tomatoes", quantity: "2 kg").
+Return an empty list if no grocery or household items are found."""
+
+
+def extract_shopping_items(raw_input: str):
+    """
+    Use Haiku to extract structured items from a shopping list text.
+    Returns list of {"name": str, "quantity": str|None, "notes": str|None}.
+    """
+    try:
+        response = client.messages.create(
+            model=HAIKU_MODEL,
+            max_tokens=500,
+            system=_EXTRACT_ITEMS_SYSTEM,
+            messages=[{"role": "user", "content": raw_input}],
+        )
+        raw = response.content[0].text.strip()
+        if raw.startswith("```"):
+            parts_split = raw.split("```")
+            raw = parts_split[1] if len(parts_split) > 1 else raw
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+        extracted = json.loads(raw)
+        return extracted.get("items", [])
+    except Exception:
+        return []
+
+
 def parse_input(raw):
     """
     Parse raw input into (url, topic_hint, explicit_type).
@@ -368,57 +511,72 @@ def is_substack(url):
     return bool(url) and "substack.com" in url.lower()
 
 
+def _parse_llm_json(raw_text: str) -> dict:
+    """Strip markdown fencing and parse JSON from LLM response."""
+    raw = raw_text.strip()
+    if raw.startswith("```"):
+        parts = raw.split("```")
+        raw = parts[1] if len(parts) > 1 else raw
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+    return json.loads(raw)
+
+
 def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, explicit_type=None):
     """
-    Classify input. Returns dict with: type, confidence, routing, rationale, metadata, tags.
-    routing is one of: 'assign' | 'unknown' | 'new_type'
+    Classify input using a two-step pipeline:
+      1. Tokenize the raw input into semantic tokens
+      2. Send tokens + all type descriptions to LLM for similarity scoring
+      3. LLM returns per-type similarity scores + best match + metadata
+      4. Apply type-specific confidence thresholds to route
+
+    Returns dict: type, confidence, routing, rationale, metadata, tags, scores.
+    routing: 'assign' | 'unknown' | 'new_type'
     """
     import datetime
 
-    parts = []
+    # ── Step 1: Tokenize ──────────────────────────────────────────────────────
+    tokens = _tokenize_input(scraped_text or raw_input)
+
+    # ── Step 2: Build prompt ──────────────────────────────────────────────────
+    prompt_parts = []
     if explicit_type:
-        parts.append(f"[Classification directive: type = {explicit_type}]")
+        prompt_parts.append(f"[Classification directive: type = {explicit_type}. Set confidence ≥ 0.90.]")
     if topic_hint:
-        parts.append(f"[Topic hint from user: {topic_hint}]")
+        prompt_parts.append(f"[User topic hint: {topic_hint}]")
     if source_url:
-        parts.append(f"Source URL: {source_url}")
+        prompt_parts.append(f"[Source URL: {source_url}]")
+
+    prompt_parts.append(f"INPUT TOKENS: {json.dumps(tokens)}")
+
     if scraped_text:
-        parts.append(scraped_text)
-    elif source_url:
-        parts.append(f"URL (could not be scraped — use URL pattern and topic hint to classify): {source_url}")
-    else:
-        parts.append(raw_input)
+        prompt_parts.append(f"FULL CONTENT (for metadata extraction):\n{scraped_text[:3000]}")
+    elif source_url and not scraped_text:
+        prompt_parts.append(f"(URL could not be scraped — classify from URL pattern and tokens only)")
 
-    content = "\n\n".join(parts)
+    content = "\n\n".join(prompt_parts)
 
-    system = _SYSTEM.format(
+    system = _SIMILARITY_SYSTEM.format(
         type_list=_build_type_list(),
         known_projects=json.dumps(KNOWN_PROJECTS),
         today=datetime.date.today().isoformat(),
     )
 
+    # ── Step 3: LLM similarity scoring call ──────────────────────────────────
     try:
         response = client.messages.create(
             model=MODEL,
-            max_tokens=800,
+            max_tokens=1000,
             system=system,
             messages=[{"role": "user", "content": content}],
         )
-
-        raw = response.content[0].text.strip()
-
-        if raw.startswith("```"):
-            parts_split = raw.split("```")
-            raw = parts_split[1] if len(parts_split) > 1 else raw
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
-
-        result = json.loads(raw)
+        result = _parse_llm_json(response.content[0].text)
 
     except (json.JSONDecodeError, IndexError, KeyError):
         result = {
-            "type": "unknown",
+            "scores": {},
+            "best_type": "unknown",
             "confidence": 0.0,
             "rationale": "Classification failed — could not parse response",
             "metadata": {},
@@ -427,7 +585,8 @@ def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, exp
         }
     except Exception as e:
         result = {
-            "type": "unknown",
+            "scores": {},
+            "best_type": "unknown",
             "confidence": 0.0,
             "rationale": f"Classification error: {str(e)[:100]}",
             "metadata": {},
@@ -435,45 +594,54 @@ def classify(raw_input, scraped_text=None, source_url=None, topic_hint=None, exp
             "suggested_new_type": None,
         }
 
+    # Normalise field names (LLM may return "type" instead of "best_type")
+    if "type" in result and "best_type" not in result:
+        result["best_type"] = result.pop("type")
+    result.setdefault("scores", {})
+    result["type"] = result.get("best_type", "unknown")
+
     meta = result.setdefault("metadata", {})
-    confidence = result.get("confidence", 0)
+    confidence = float(result.get("confidence", 0))
     suggested_new_type = result.get("suggested_new_type")
 
-    # Preserve URL
+    # ── Step 4: Post-processing overrides ────────────────────────────────────
+
+    # Preserve URL in metadata
     if source_url and not meta.get("url"):
         meta["url"] = source_url
 
-    # Substack override
+    # Substack always → food_for_thought
     if is_substack(source_url) and confidence >= 0.50:
         result["type"] = "food_for_thought"
-        result["confidence"] = max(confidence, HIGH_CONFIDENCE)
+        confidence = max(confidence, HIGH_CONFIDENCE)
+        result["confidence"] = confidence
         meta.setdefault("source", "substack")
 
-    # Honour explicit_type (user's stated intent is always correct)
-    if explicit_type and confidence >= 0.50:
+    # Explicit type: user intent is always correct
+    if explicit_type:
         result["type"] = explicit_type
-        result["confidence"] = max(confidence, HIGH_CONFIDENCE)
+        confidence = max(confidence, HIGH_CONFIDENCE)
+        result["confidence"] = confidence
 
     # Normalize topic to Title Case
     if meta.get("topic"):
         meta["topic"] = meta["topic"].strip().title()
 
-    # Apply topic_hint if topic is empty (but don't use explicit classification keywords as topic)
+    # Apply topic_hint if topic is empty
     if topic_hint and not meta.get("topic"):
         kw = topic_hint.lower().strip()
         if kw not in _EXPLICIT_TYPE_KEYWORDS:
             if result.get("type") in ("food_for_thought", "build_better", "learning", "interview_exp"):
                 meta["topic"] = topic_hint.strip().title()
 
-    # Compute routing based on final confidence and explicit_type
-    final_confidence = result.get("confidence", 0)
-    routing = _compute_routing(final_confidence, suggested_new_type, explicit_type)
+    # ── Step 5: Route using type-specific thresholds ──────────────────────────
+    final_confidence = float(result.get("confidence", confidence))
+    routing = _compute_routing(final_confidence, suggested_new_type, explicit_type, result["type"])
     result["routing"] = routing
     result["best_guess"] = result["type"] if routing == "unknown" else None
 
-    # Apply routing to the stored type
     if routing == "assign":
-        pass  # type stays as Corty returned it
+        pass
     elif routing == "unknown":
         meta["_best_guess"] = result["type"]
         result["type"] = "unknown"
