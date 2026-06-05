@@ -2060,13 +2060,15 @@
   function _renderCartItems() {
     const body = $('cart-modal-body');
     const footer = $('cart-modal-footer');
-    if (!_cartItems.length) {
+    const visibleItems = _cartItems.filter(i => i.qty > 0);
+    if (!visibleItems.length) {
       body.innerHTML = '<div class="cart-empty">Your Zepto cart is empty.</div>';
       footer.style.display = 'none';
       return;
     }
     body.innerHTML = '';
     _cartItems.forEach((item, idx) => {
+      if (item.qty === 0) return; // pending deletion — hidden until sync confirms
       const row = document.createElement('div');
       row.className = 'cart-item-row';
       row.dataset.idx = idx;
@@ -2125,24 +2127,49 @@
     const newQty = item.qty + delta;
     if (newQty < 0) return;
     if (newQty === 0) {
-      // Block removing the last item — Zepto MCP cannot clear a cart via update_cart.
-      if (_cartItems.length === 1) {
+      // Block removing the last item — Zepto MCP cannot receive an all-zero payload.
+      if (_cartItems.filter(i => i.qty > 0).length === 1) {
         showAutoAddToast('⚠️ Open the Zepto app to empty your cart');
         return;
       }
-      _cartItems.splice(idx, 1);
+      item.qty = 0;
+      // Hide the row in-place — don't rebuild the whole list so other buttons stay live.
+      const row = document.querySelector(`.cart-item-row[data-idx="${idx}"]`);
+      if (row) row.style.display = 'none';
+      // If all visible items are now gone, show empty state.
+      if (_cartItems.every(i => i.qty === 0)) {
+        $('cart-modal-body').innerHTML = '<div class="cart-empty">Your Zepto cart is empty.</div>';
+        const footer = $('cart-modal-footer');
+        if (footer) footer.style.display = 'none';
+      }
     } else {
       item.qty = newQty;
+      // Update only the affected row's qty display and minus-button appearance.
+      const row = document.querySelector(`.cart-item-row[data-idx="${idx}"]`);
+      if (row) {
+        const qtySpan = row.querySelector('.cart-qty-num');
+        if (qtySpan) qtySpan.textContent = newQty;
+        const minusBtn = row.querySelector('.cart-qty-btn');
+        if (minusBtn) {
+          minusBtn.textContent = newQty === 1 ? '🗑' : '−';
+          minusBtn.title = newQty === 1 ? 'Remove item' : 'Decrease';
+          minusBtn.className = 'cart-qty-btn' + (newQty === 1 ? ' remove' : '');
+        }
+        const priceEl = row.querySelector('.cart-item-price');
+        if (priceEl) priceEl.textContent = '₹' + (item.price * newQty).toFixed(0);
+      }
     }
-    _renderCartItems();
-    // Debounce the server call — wait 600ms after last change
+    // Update total in footer.
+    const totalEl = $('cart-total-value');
+    if (totalEl) totalEl.textContent = '₹' + _cartTotal().toFixed(0);
     clearTimeout(_cartUpdateTimer);
     _cartUpdateTimer = setTimeout(_pushCartUpdate, 600);
   }
 
   async function _pushCartUpdate() {
     _cartUpdateTimer = null;
-    if (_cartItems.length === 0) return; // no-op: Zepto rejects empty carts
+    const activeItems = _cartItems.filter(i => i.qty > 0);
+    if (activeItems.length === 0) return; // Zepto rejects all-zero payload
     const totalEl = $('cart-total-value');
     const prev = totalEl ? totalEl.textContent : '';
     if (totalEl) totalEl.textContent = '…';
@@ -2151,6 +2178,7 @@
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
+          // Send ALL items including qty=0 so Zepto sees explicit deletions.
           items: _cartItems.map(i => ({pvid: i.pvid, spid: i.spid, qty: i.qty})),
           address_id: _zeptoSelectedAddressId || null,
         }),
@@ -2164,10 +2192,11 @@
           const msg = (data.error || 'unknown error').slice(0, 80);
           console.error('[Cortex] Zepto cart sync failed:', data.error);
           showAutoAddToast(`⚠️ Cart sync failed: ${msg}`);
-          // Re-fetch the real cart state from Zepto so UI stays in sync
           _resyncCartAfterFailure();
         }
       } else {
+        // Prune confirmed-deleted items from in-memory list.
+        _cartItems = _cartItems.filter(i => i.qty > 0);
         if (totalEl) totalEl.textContent = '₹' + _cartTotal().toFixed(0);
       }
     } catch(e) {

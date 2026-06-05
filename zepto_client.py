@@ -152,6 +152,29 @@ def _mcp_initialize(token):
     return session_id
 
 
+def list_mcp_tools(token):
+    """Return tool names and descriptions from Zepto MCP. For debugging only."""
+    session_id = _mcp_initialize(token)
+    payload = {
+        "jsonrpc": "2.0",
+        "id": str(uuid.uuid4()),
+        "method": "tools/list",
+        "params": {},
+    }
+    resp = requests.post(
+        ZEPTO_MCP_URL, json=payload,
+        headers=_headers(token, session_id),
+        timeout=_CALL_TIMEOUT,
+    )
+    resp.raise_for_status()
+    body = _sse_parse(resp)
+    tools = body.get("result", {}).get("tools", [])
+    return {
+        "tools": [{"name": t.get("name"), "description": t.get("description", "")[:200]} for t in tools],
+        "raw_result_keys": list(body.get("result", {}).keys()),
+    }
+
+
 def _mcp_tool(token, session_id, tool_name, arguments):
     """
     Call a single MCP tool. Returns the content[0].text string.
@@ -591,9 +614,16 @@ def update_cart_items(access_token, items, address_id=None):
             "quantity": int(i["qty"]),
         }
         for i in items
-        if i.get("pvid") and i.get("spid") and int(i.get("qty", 0)) > 0
+        if i.get("pvid") and i.get("spid")
     ]
-    if not mcp_items:
+    import logging
+    logging.getLogger(__name__).info(
+        "update_cart sending %d items to Zepto: %s",
+        len(mcp_items),
+        [(m["productVariantId"][:8], m["storeProductId"][:8], m["quantity"]) for m in mcp_items],
+    )
+    # Zepto rejects a payload where every item has qty 0 (no active items).
+    if not mcp_items or not any(m["quantity"] > 0 for m in mcp_items):
         raise ValueError("cannot_clear_cart")
     return _mcp_tool(access_token, session_id, "update_cart", {
         "deviceId": _DEVICE_ID,

@@ -530,6 +530,19 @@ def zepto_view_cart():
     return jsonify(result)
 
 
+@app.route("/api/zepto/debug/tools", methods=["GET"])
+def zepto_debug_tools():
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Token invalid"}), 401
+    from zepto_client import list_mcp_tools
+    return jsonify(list_mcp_tools(access_token))
+
+
 @app.route("/api/zepto/cart/update", methods=["POST"])
 def zepto_cart_update():
     encrypted = db.get_zepto_token()
@@ -542,6 +555,8 @@ def zepto_cart_update():
     body = request.get_json(silent=True) or {}
     items = body.get("items") or []
     address_id = (body.get("address_id") or "").strip() or None
+    app.logger.info("cart/update received %d items: %s", len(items),
+                    [(i.get("pvid","")[:8], i.get("spid","")[:8], i.get("qty")) for i in items])
     try:
         update_cart_items(access_token, items, address_id=address_id)
     except ValueError as e:
@@ -696,6 +711,8 @@ threading.Thread(target=_reminder_poll, daemon=True).start()
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     import socket
     hostname = socket.gethostname()
     try:
