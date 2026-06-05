@@ -2161,14 +2161,32 @@
         if (data.error === 'cannot_clear_cart') {
           showAutoAddToast('⚠️ Open the Zepto app to empty your cart');
         } else {
-          showAutoAddToast('⚠️ Cart sync failed — try again');
+          const msg = (data.error || 'unknown error').slice(0, 80);
+          console.error('[Cortex] Zepto cart sync failed:', data.error);
+          showAutoAddToast(`⚠️ Cart sync failed: ${msg}`);
+          // Re-fetch the real cart state from Zepto so UI stays in sync
+          _resyncCartAfterFailure();
         }
       } else {
         if (totalEl) totalEl.textContent = '₹' + _cartTotal().toFixed(0);
       }
     } catch(e) {
+      console.error('[Cortex] Cart sync network error:', e);
       if (totalEl) totalEl.textContent = prev;
     }
+  }
+
+  async function _resyncCartAfterFailure() {
+    try {
+      const params = _zeptoSelectedAddressId ? '?address_id=' + encodeURIComponent(_zeptoSelectedAddressId) : '';
+      const data = await fetch('/api/zepto/cart' + params).then(r => r.json());
+      if (!data.error) {
+        _cartItems = data.items || [];
+        _renderCartItems();
+        const totalEl = $('cart-total-value');
+        if (totalEl) totalEl.textContent = '₹' + _cartTotal().toFixed(0);
+      }
+    } catch(_) {}
   }
 
   async function openCartModal() {

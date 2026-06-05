@@ -547,9 +547,11 @@ def zepto_cart_update():
     except ValueError as e:
         if "cannot_clear_cart" in str(e):
             return jsonify({"error": "cannot_clear_cart"}), 422
-        return jsonify({"error": str(e)[:120]}), 400
+        app.logger.error("zepto cart update ValueError: %s", e)
+        return jsonify({"error": str(e)[:200]}), 400
     except Exception as e:
-        return jsonify({"error": str(e)[:120]}), 502
+        app.logger.error("zepto cart update error: %s", e)
+        return jsonify({"error": str(e)[:200]}), 502
     return jsonify({"ok": True})
 
 

@@ -250,15 +250,19 @@ def _setup_context(token, address_id=None):
     return session_id, past_names
 
 
-def _setup_for_cart(token, address_id=None):
-    """Lightweight session setup for cart operations (no parallel search needed)."""
+def _setup_for_cart(token, address_id=None, need_past_orders=False):
+    """Lightweight session setup for cart operations (no parallel search needed).
+    need_past_orders: pass True only when past-order data is used (search/auto-add).
+    Pure cart reads/writes skip get_past_order_items to reduce latency and failure surface.
+    """
     session_id = _mcp_initialize(token)
     addr_text = _mcp_tool(token, session_id, "list_saved_addresses", {})
     if not address_id:
         address_id = _find_home_address_id(addr_text)
     if address_id:
         _mcp_tool(token, session_id, "select_saved_address", {"addressId": address_id})
-    _mcp_tool(token, session_id, "get_past_order_items", {})  # required by Zepto
+    if need_past_orders:
+        _mcp_tool(token, session_id, "get_past_order_items", {})
     return session_id
 
 
