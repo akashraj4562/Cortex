@@ -1357,6 +1357,7 @@
           row.dataset.pvid = r.pvid || '';
           row.dataset.spid = r.spid || '';
           row.dataset.token = r.token || '';
+          if (r.pvid && r.token) _pvidTokenMap[r.pvid] = r.token;
           row.innerHTML =
             `<span class="auto-add-check">✓</span>` +
             `<span class="auto-add-token">${esc(r.token || '')}</span>` +
@@ -2052,6 +2053,7 @@
 
   let _cartItems = [];        // [{name, price, qty, pvid, spid}]
   let _cartUpdateTimer = null;
+  let _pvidTokenMap = {};     // pvid → original capture token (e.g. "milk"); built from archived card renders
 
   function _cartTotal() {
     return _cartItems.reduce((s, i) => s + i.price * i.qty, 0);
@@ -2108,7 +2110,7 @@
       swapBtn.className = 'cart-swap-btn';
       swapBtn.textContent = 'Swap ↻';
       swapBtn.addEventListener('click', () => {
-        openSwapSheet(null, item.name, item.pvid, null, idx);
+        openSwapSheet(null, _pvidTokenMap[item.pvid] || item.name, item.pvid, null, idx);
       });
 
       row.appendChild(nameEl);
