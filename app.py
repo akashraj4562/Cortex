@@ -530,6 +530,115 @@ def zepto_view_cart():
     return jsonify(result)
 
 
+# ── PRD-005: credit-card checkout (M-5 gated by checkout_token) ───────────────
+
+@app.route("/api/zepto/payment-methods", methods=["POST"])
+def zepto_payment_methods():
+    """Issue a single-use checkout_token + return available payment methods."""
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected", "code": "not_connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid — please reconnect"}), 401
+
+    body = request.get_json(silent=True) or {}
+    cart_items = body.get("cart_items") or []
+    address_id = (body.get("address_id") or "").strip() or None
+    if not cart_items:
+        return jsonify({"error": "Cart is empty"}), 400
+
+    from zepto_client import get_payment_methods, _cart_hash
+    try:
+        methods = get_payment_methods(access_token, address_id=address_id)
+    except Exception as e:
+        app.logger.error("[payment-methods] %s", e)
+        return jsonify({"error": f"Couldn’t load payment methods: {str(e)[:120]}"}), 502
+
+    cart_hash = _cart_hash(cart_items)
+    token, expires_at = db.create_pending_checkout(cart_hash, None, address_id, cart_items)
+    return jsonify({"methods": methods, "checkout_token": token, "expires_at": expires_at})
+
+
+@app.route("/api/zepto/preview", methods=["POST"])
+def zepto_preview():
+    """Live order preview (confirmOrder=False) — never places an order."""
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid — please reconnect"}), 401
+
+    body = request.get_json(silent=True) or {}
+    token = (body.get("checkout_token") or "").strip()
+    payment_method = (body.get("payment_method") or "CARD").strip().upper()
+
+    status, row = db.checkout_token_status(token)
+    if status != "ok":
+        return jsonify({"error": status}), 422
+
+    from zepto_client import preview_order
+    try:
+        preview = preview_order(access_token, payment_method, row["address_id"])
+    except Exception as e:
+        app.logger.error("[preview] %s", e)
+        return jsonify({"error": f"Preview failed: {str(e)[:120]}"}), 502
+    db.mark_checkout_previewed(token)
+    return jsonify({"preview": preview, "payment_method": payment_method})
+
+
+@app.route("/api/zepto/checkout", methods=["POST"])
+def zepto_checkout():
+    """Place the order (confirmOrder=True). Gated by single-use checkout_token."""
+    encrypted = db.get_zepto_token()
+    if not encrypted:
+        return jsonify({"error": "Zepto not connected"}), 401
+    try:
+        access_token = decrypt_token(encrypted)
+    except ValueError:
+        return jsonify({"error": "Zepto token invalid — please reconnect"}), 401
+
+    body = request.get_json(silent=True) or {}
+    token = (body.get("checkout_token") or "").strip()
+    payment_method = (body.get("payment_method") or "CARD").strip().upper()
+
+    from zepto_client import place_order, _cart_hash
+    resent = body.get("cart_items")
+    check_hash = _cart_hash(resent) if resent else None
+
+    status, row = db.checkout_token_status(token, cart_hash=check_hash)
+    if status != "ok":
+        return jsonify({"error": status}), (409 if status == "cart_changed" else 422)
+
+    # Single-use lock BEFORE calling Zepto — defeats double-tap / replay (M-3 guard).
+    if not db.mark_checkout_used(token):
+        return jsonify({"error": "used"}), 422
+
+    items_snapshot = row["items_json"]  # canonical, server-stored (no payload substitution)
+    try:
+        result = place_order(access_token, payment_method, row["address_id"])
+    except Exception as e:
+        app.logger.error("[checkout] place_order failed: %s", e)
+        db.log_checkout_op(token, row["cart_hash"], payment_method, row["address_id"],
+                           items_snapshot, None, None, "error")
+        return jsonify({"error": f"Order failed: {str(e)[:120]}"}), 502
+
+    order_id = result.get("order_id")
+    db.log_checkout_op(token, row["cart_hash"], payment_method, row["address_id"],
+                       items_snapshot, result.get("total"), order_id, "success")
+    db.log_event("zepto_checkout", {"payment_method": payment_method, "type": result.get("type")})
+    return jsonify({
+        "type": result.get("type", "confirmed"),
+        "order_id": order_id,
+        "payment_url": result.get("payment_url"),
+        "total": result.get("total"),
+        "eta_minutes": result.get("eta_minutes"),
+    })
+
+
 @app.route("/api/zepto/debug/tools", methods=["GET"])
 def zepto_debug_tools():
     encrypted = db.get_zepto_token()

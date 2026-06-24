@@ -802,6 +802,37 @@
     .cart-total-value { font-size: 15px; font-weight: 700; color: #27AE60; }
     .cart-empty { text-align: center; color: var(--text2); padding: 32px 0; font-size: 14px; }
     .cart-loading { text-align: center; color: var(--text2); padding: 24px 0; font-size: 13px; }
+
+    /* PRD-005 checkout */
+    .zepto-checkout-btn {
+      background: #27AE60; color: #fff; border: none; border-radius: 8px;
+      padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .zepto-checkout-btn:hover { background: #229152; }
+    .zepto-checkout-btn:disabled { opacity: 0.6; cursor: default; }
+    .checkout-footer { justify-content: space-between; gap: 10px; }
+    .checkout-back-btn {
+      background: none; border: 1.5px solid var(--border); color: var(--text2);
+      border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+    }
+    .checkout-timer { margin-left: auto; margin-right: 10px; font-size: 12px; color: var(--text2); }
+    .checkout-section-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--text2); margin: 14px 0 6px;
+    }
+    .checkout-line { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+    .checkout-line.total { font-weight: 700; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
+    .pay-method-row {
+      display: flex; align-items: center; gap: 8px; font-size: 13px;
+      padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; cursor: pointer;
+    }
+    .checkout-result { text-align: center; padding: 18px 0; }
+    .checkout-result-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .checkout-result-sub { font-size: 13px; color: var(--text2); margin-bottom: 16px; line-height: 1.5; }
+    .pay-now-btn {
+      display: inline-block; background: #27AE60; color: #fff; text-decoration: none;
+      border-radius: 8px; padding: 11px 22px; font-weight: 600; font-size: 14px; margin-bottom: 12px;
+    }
     .action-btn.zepto_search {
       color: #27AE60;
       border-color: #27AE60;
@@ -1006,6 +1037,25 @@
     <div class="cart-modal-footer" id="cart-modal-footer" style="display:none">
       <span class="cart-total-label">Total</span>
       <span class="cart-total-value" id="cart-total-value">₹0</span>
+      <button class="zepto-checkout-btn" id="zepto-checkout-btn" onclick="reviewCheckout()">Review &amp; Checkout →</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRD-005: Order Summary / credit-card checkout -->
+<div class="cart-modal-overlay" id="checkout-overlay">
+  <div class="cart-modal">
+    <div class="cart-modal-header">
+      <div class="cart-modal-title">Review &amp; Checkout</div>
+      <span class="checkout-timer" id="checkout-timer"></span>
+      <button class="cart-modal-close" onclick="closeCheckout()">✕</button>
+    </div>
+    <div class="cart-modal-body" id="checkout-body">
+      <div class="cart-loading">Loading…</div>
+    </div>
+    <div class="cart-modal-footer checkout-footer" id="checkout-footer" style="display:none">
+      <button class="checkout-back-btn" onclick="closeCheckout()">Go Back</button>
+      <button class="zepto-checkout-btn" id="confirm-pay-btn" onclick="confirmAndPay()">Confirm &amp; Pay</button>
     </div>
   </div>
 </div>
@@ -2140,6 +2190,153 @@
     });
     $('cart-total-value').textContent = '₹' + _cartTotal().toFixed(0);
     footer.style.display = 'flex';
+  }
+
+  // ── PRD-005: credit-card checkout ──────────────────────────────────────────
+  let _checkoutToken = null, _checkoutMethods = [], _selectedMethod = 'CARD', _checkoutTimer = null;
+
+  function _checkoutCartItems() {
+    return _cartItems.filter(i => i.qty > 0).map(i => ({ pvid: i.pvid, qty: i.qty }));
+  }
+
+  async function reviewCheckout() {
+    const items = _checkoutCartItems();
+    if (!items.length) { showAutoAddToast('Your cart is empty'); return; }
+    const btn = $('zepto-checkout-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+    try {
+      const res = await fetch('/api/zepto/payment-methods', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cart_items: items }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start checkout');
+      _checkoutToken = data.checkout_token;
+      _checkoutMethods = (data.methods && data.methods.length) ? data.methods : [{ key: 'CARD', label: 'Credit/Debit Card' }];
+      _selectedMethod = _checkoutMethods.some(m => m.key === 'CARD') ? 'CARD' : _checkoutMethods[0].key;
+      closeCartModal();
+      _openCheckout(data.expires_at);
+      _renderCheckoutSummary();
+      runPreview();
+    } catch (e) {
+      showAutoAddToast('⚠️ ' + e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Review & Checkout →'; }
+    }
+  }
+
+  function _openCheckout(expiresAt) {
+    $('checkout-overlay').classList.add('open');
+    const footer = $('checkout-footer');
+    footer.style.display = 'flex';
+    const c = $('confirm-pay-btn');
+    if (c) { c.disabled = false; c.textContent = 'Confirm & Pay'; }
+    if (_checkoutTimer) clearInterval(_checkoutTimer);
+    const end = expiresAt ? Date.parse(expiresAt.replace(' ', 'T') + 'Z') : (Date.now() + 300000);
+    const tick = () => {
+      const ms = end - Date.now();
+      const el = $('checkout-timer');
+      if (ms <= 0) { clearInterval(_checkoutTimer); _expireCheckout(); return; }
+      const s = Math.floor(ms / 1000);
+      if (el) el.textContent = 'Expires in ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    };
+    tick();
+    _checkoutTimer = setInterval(tick, 1000);
+  }
+
+  function _expireCheckout() {
+    _checkoutToken = null;
+    const el = $('checkout-timer'); if (el) el.textContent = 'Session expired';
+    const c = $('confirm-pay-btn'); if (c) { c.disabled = true; c.textContent = 'Session expired'; }
+    showAutoAddToast('Checkout session expired — tap Review & Checkout again');
+  }
+
+  function closeCheckout() {
+    if (_checkoutTimer) clearInterval(_checkoutTimer);
+    $('checkout-overlay').classList.remove('open');
+    _checkoutToken = null;
+  }
+
+  function _renderCheckoutSummary() {
+    const body = $('checkout-body');
+    const items = _cartItems.filter(i => i.qty > 0);
+    const icons = { COD: '💵', CARD: '💳', WALLET: '👛', UPI: '📱' };
+    let html = '<div class="checkout-section-label">Items</div>';
+    items.forEach(i => {
+      html += '<div class="checkout-line"><span>' + esc(i.name) + ' ×' + i.qty +
+              '</span><span>₹' + (i.price * i.qty).toFixed(0) + '</span></div>';
+    });
+    html += '<div class="checkout-line total" id="checkout-preview-total"><span>Total</span><span>…</span></div>';
+    html += '<div class="checkout-section-label">Payment method</div>';
+    _checkoutMethods.forEach(m => {
+      const on = m.key === _selectedMethod ? 'checked' : '';
+      html += '<label class="pay-method-row"><input type="radio" name="paym" value="' + m.key +
+              '" ' + on + ' onchange="selectPayMethod(\'' + m.key + '\')"> <span>' +
+              (icons[m.key] || '•') + ' ' + esc(m.label) + '</span></label>';
+    });
+    body.innerHTML = html;
+  }
+
+  function selectPayMethod(key) { _selectedMethod = key; runPreview(); }
+
+  async function runPreview() {
+    if (!_checkoutToken) return;
+    const totalEl = $('checkout-preview-total');
+    const valSpan = totalEl ? totalEl.querySelector('span:last-child') : null;
+    if (valSpan) valSpan.textContent = '…';
+    try {
+      const res = await fetch('/api/zepto/preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkout_token: _checkoutToken, payment_method: _selectedMethod }),
+      });
+      const data = await res.json();
+      if (res.ok && data.preview && valSpan) {
+        const p = data.preview, bits = [];
+        if (p.total != null) bits.push('₹' + Math.round(p.total));
+        if (p.eta_minutes) bits.push('~' + p.eta_minutes + ' min');
+        valSpan.textContent = bits.join(' · ') || 'Ready';
+      }
+    } catch (e) { /* preview is best-effort */ }
+  }
+
+  async function confirmAndPay() {
+    if (!_checkoutToken) { showAutoAddToast('Session expired'); return; }
+    const btn = $('confirm-pay-btn');
+    btn.disabled = true; btn.textContent = 'Placing order…';
+    try {
+      const res = await fetch('/api/zepto/checkout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkout_token: _checkoutToken, payment_method: _selectedMethod }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Order failed');
+      if (_checkoutTimer) clearInterval(_checkoutTimer);
+      _renderCheckoutResult(data);
+    } catch (e) {
+      showAutoAddToast('⚠️ ' + e.message);
+      btn.disabled = false; btn.textContent = 'Confirm & Pay';
+    }
+  }
+
+  function _renderCheckoutResult(data) {
+    const body = $('checkout-body');
+    $('checkout-footer').style.display = 'none';
+    const el = $('checkout-timer'); if (el) el.textContent = '';
+    if (data.type === 'redirect' && data.payment_url) {
+      body.innerHTML =
+        '<div class="checkout-result">' +
+        '<div class="checkout-result-title">Almost done</div>' +
+        '<div class="checkout-result-sub">Complete payment in your browser. Your order confirms in the Zepto app.</div>' +
+        '<a class="pay-now-btn" href="' + esc(data.payment_url) + '" target="_blank" rel="noopener">Pay Now →</a><br>' +
+        '<button class="checkout-back-btn" onclick="closeCheckout()">Done</button></div>';
+    } else {
+      body.innerHTML =
+        '<div class="checkout-result">' +
+        '<div class="checkout-result-title">✓ Order placed</div>' +
+        (data.order_id ? '<div class="checkout-result-sub">Order ' + esc(String(data.order_id)) +
+          (data.eta_minutes ? ' · ~' + data.eta_minutes + ' min' : '') + '</div>' : '') +
+        '<button class="checkout-back-btn" onclick="closeCheckout()">Done</button></div>';
+    }
   }
 
   function cartChangeQty(idx, delta) {

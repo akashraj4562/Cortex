@@ -124,6 +124,33 @@ def init_db():
                 expires_at  TIMESTAMP NOT NULL
             );
 
+            -- PRD-005: checkout token (single-use, 5-min TTL) + append-only order audit.
+            CREATE TABLE IF NOT EXISTS pending_checkout_ops (
+                token          TEXT      PRIMARY KEY,
+                cart_hash      TEXT      NOT NULL,
+                payment_method TEXT,
+                address_id     TEXT,
+                items_json     TEXT      NOT NULL,
+                status         TEXT      NOT NULL DEFAULT 'initiated',
+                created_at     TIMESTAMP DEFAULT (datetime('now')),
+                expires_at     TIMESTAMP NOT NULL,
+                used_at        TIMESTAMP,
+                order_id       TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS checkout_ops (
+                id             INTEGER   PRIMARY KEY AUTOINCREMENT,
+                token          TEXT      NOT NULL,
+                cart_hash      TEXT      NOT NULL,
+                payment_method TEXT      NOT NULL,
+                address_id     TEXT,
+                items_snapshot TEXT      NOT NULL,
+                total_amount   REAL,
+                zepto_order_id TEXT,
+                called_at      TIMESTAMP DEFAULT (datetime('now')),
+                status         TEXT      NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS zepto_oauth_states (
                 state         TEXT PRIMARY KEY,
                 code_verifier TEXT NOT NULL,
@@ -391,6 +418,88 @@ def log_event(event_type: str, payload: dict):
         conn.execute(
             "INSERT INTO events (event_type, payload_json) VALUES (?, ?)",
             (event_type, json.dumps(payload)),
+        )
+
+
+# ── PRD-005: checkout token lifecycle + order audit ──────────────────────────
+
+def create_pending_checkout(cart_hash: str, payment_method, address_id, items: list):
+    """Issue a single-use checkout token (5-min TTL). Returns (token, expires_at).
+    Storing the canonical items here (not re-trusting the client at confirm) prevents
+    payload substitution. The 'initiated' row is the M-1 completion-rate denominator."""
+    token = str(uuid.uuid4())
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO pending_checkout_ops
+               (token, cart_hash, payment_method, address_id, items_json, status, expires_at)
+               VALUES (?, ?, ?, ?, ?, 'initiated', datetime('now', '+5 minutes'))""",
+            (token, cart_hash, payment_method, address_id, json.dumps(items)),
+        )
+        expires_at = conn.execute(
+            "SELECT expires_at FROM pending_checkout_ops WHERE token = ?", (token,)
+        ).fetchone()["expires_at"]
+    return token, expires_at
+
+
+def get_pending_checkout(token: str):
+    with get_conn() as conn:
+        return conn.execute(
+            "SELECT * FROM pending_checkout_ops WHERE token = ?", (token,)
+        ).fetchone()
+
+
+def checkout_token_status(token: str, cart_hash: str = None):
+    """Validate a checkout token. Returns (status, row) where status is one of:
+    'ok' | 'not_found' | 'expired' | 'used' | 'cart_changed'. Does not mutate."""
+    row = get_pending_checkout(token)
+    if row is None:
+        return "not_found", None
+    if row["used_at"]:
+        return "used", row
+    with get_conn() as conn:
+        live = conn.execute(
+            "SELECT 1 FROM pending_checkout_ops WHERE token = ? AND expires_at > datetime('now')",
+            (token,),
+        ).fetchone()
+    if not live:
+        return "expired", row
+    if cart_hash is not None and row["cart_hash"] != cart_hash:
+        return "cart_changed", row
+    return "ok", row
+
+
+def mark_checkout_previewed(token: str):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE pending_checkout_ops SET status='previewed' WHERE token=? AND used_at IS NULL",
+            (token,),
+        )
+
+
+def mark_checkout_used(token: str, order_id=None) -> bool:
+    """Single-use lock. Returns True iff THIS call locked the token (defeats double-tap)."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            """UPDATE pending_checkout_ops
+               SET used_at=datetime('now'), status='used', order_id=?
+               WHERE token=? AND used_at IS NULL""",
+            (order_id, token),
+        )
+        return cur.rowcount == 1
+
+
+def log_checkout_op(token, cart_hash, payment_method, address_id, items_snapshot,
+                    total_amount, zepto_order_id, status):
+    """Append-only audit of every place_order call (M-2/M-3/M-4 source)."""
+    snap = items_snapshot if isinstance(items_snapshot, str) else json.dumps(items_snapshot)
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO checkout_ops
+               (token, cart_hash, payment_method, address_id, items_snapshot,
+                total_amount, zepto_order_id, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (token, cart_hash, payment_method, address_id, snap,
+             total_amount, zepto_order_id, status),
         )
 
 

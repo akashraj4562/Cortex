@@ -4,6 +4,7 @@ Transport: MCP Streamable HTTP (SSE).
 Each public operation creates a fresh MCP session internally.
 M-5 hard zero: the MCP tools that place real orders are never invoked here.
 """
+import hashlib
 import json
 import re
 import time
@@ -813,3 +814,169 @@ def auto_add_shopping_items(access_token, tokens, address_id=None):
         })
 
     return results
+
+
+# ── PRD-005: checkout (preview + place an order) ──────────────────────────────
+# M-5 hard zero: the order-placing create_* tools are invoked ONLY from
+# preview_order() (confirmOrder=False — safe, no order) and place_order()
+# (confirmOrder=True). The order-tool NAME appears exactly once in the whole
+# codebase — in _TOOL_FOR_METHOD below — so no stray call site can exist.
+
+_TOOL_FOR_METHOD = {
+    "CARD": "create_online_payment_order",
+    # COD / WALLET / UPI reserved for the fast-follow — intentionally NOT wired in v1.
+}
+_METHOD_LABELS = {
+    "COD": "Cash on Delivery", "CARD": "Credit/Debit Card",
+    "WALLET": "Zepto Wallet", "UPI": "UPI",
+}
+
+_AMOUNT_RE = re.compile(r"₹\s*([\d,]+(?:\.\d+)?)")
+# \btotal\b so "Subtotal" doesn't shadow the grand "Total".
+_TOTAL_RE = re.compile(r"\btotal\b\D{0,14}₹\s*([\d,]+(?:\.\d+)?)", re.IGNORECASE)
+_ORDER_ID_RE = re.compile(r"order\s*id\D{0,6}([A-Za-z0-9][A-Za-z0-9_-]{5,})", re.IGNORECASE)
+_ETA_RE = re.compile(r"(\d+)\s*min", re.IGNORECASE)
+_URL_RE = re.compile(r"https?://[^\s\"'<>]+")
+
+
+def _cart_hash(items):
+    """SHA-256 of the sorted (pvid, qty) pairs of a cart. Order-independent.
+    Accepts either 'qty' or 'quantity' keys; items with qty <= 0 are ignored."""
+    def _qty(i):
+        return int(i.get("qty", i.get("quantity", 0)) or 0)
+    canonical = sorted((str(i.get("pvid", "")), _qty(i)) for i in items if _qty(i) > 0)
+    return hashlib.sha256(json.dumps(canonical).encode()).hexdigest()
+
+
+def _dispatch_tool(payment_method):
+    tool = _TOOL_FOR_METHOD.get((payment_method or "").upper())
+    if not tool:
+        raise ValueError(f"unsupported payment method: {payment_method}")
+    return tool
+
+
+def _setup_for_checkout(access_token, address_id=None):
+    """Checkout session setup — reuses the cart setup WITHOUT the heavy past-orders
+    fetch (AP-20: don't build a shared setup for the most complex caller)."""
+    return _setup_for_cart(access_token, address_id=address_id, need_past_orders=False)
+
+
+def _to_amount(s):
+    try:
+        return float(str(s).replace(",", ""))
+    except (TypeError, ValueError):
+        return None
+
+
+def _maybe_json(text):
+    try:
+        v = json.loads(text)
+        return v if isinstance(v, (dict, list)) else None
+    except Exception:
+        return None
+
+
+def _parse_methods(text):
+    """Available payment methods → [{key, label}]. Defensive: handles JSON or human
+    text (the live response shape is confirmed at re-auth — PRD-005 Q1). Card-first:
+    CARD is always offered in v1 even when detection is ambiguous."""
+    needles = {"COD": ("cash on delivery", "cod", "cash"),
+               "CARD": ("credit", "debit", "card"),
+               "WALLET": ("wallet", "zepto cash"),
+               "UPI": ("upi",)}
+    data = _maybe_json(text)
+    hay = json.dumps(data).lower() if data is not None else (text or "").lower()
+    found = [{"key": k, "label": _METHOD_LABELS[k]}
+             for k, ns in needles.items() if any(n in hay for n in ns)]
+    if not any(m["key"] == "CARD" for m in found):
+        found.append({"key": "CARD", "label": _METHOD_LABELS["CARD"]})
+    return found
+
+
+def _parse_preview(text):
+    """Live order preview → {subtotal, delivery_fee, total, eta_minutes, raw}."""
+    data = _maybe_json(text)
+    if isinstance(data, dict):
+        g = lambda *ks: next((data[k] for k in ks if data.get(k) is not None), None)
+        return {"subtotal": g("subtotal", "sub_total"),
+                "delivery_fee": g("delivery_fee", "deliveryFee", "delivery"),
+                "total": g("total", "grand_total", "amount"),
+                "eta_minutes": g("eta_minutes", "eta", "etaMinutes"),
+                "raw": (text or "")[:500]}
+    amounts = [_to_amount(a) for a in _AMOUNT_RE.findall(text or "")]
+    totals = _TOTAL_RE.findall(text or "")   # last match = grand total
+    eta = _ETA_RE.search(text or "")
+    return {"subtotal": amounts[0] if amounts else None,
+            "delivery_fee": None,
+            "total": _to_amount(totals[-1]) if totals else (max(amounts) if amounts else None),
+            "eta_minutes": int(eta.group(1)) if eta else None,
+            "raw": (text or "")[:500]}
+
+
+def _parse_order(text):
+    """Placed-order response → {order_id, total, raw}."""
+    data = _maybe_json(text)
+    if isinstance(data, dict):
+        oid = data.get("order_id") or data.get("orderId") or data.get("id")
+        return {"order_id": str(oid) if oid else None,
+                "total": data.get("total") or data.get("amount"),
+                "raw": (text or "")[:500]}
+    m = _ORDER_ID_RE.search(text or "")
+    mt = _TOTAL_RE.search(text or "")
+    return {"order_id": m.group(1) if m else None,
+            "total": _to_amount(mt.group(1)) if mt else None,
+            "raw": (text or "")[:500]}
+
+
+def _parse_payment_url(text):
+    data = _maybe_json(text)
+    if isinstance(data, dict):
+        for k in ("payment_url", "paymentUrl", "url", "payment_link", "short_url"):
+            if data.get(k):
+                return data[k]
+    m = _URL_RE.search(text or "")
+    return m.group(0) if m else None
+
+
+def get_payment_methods(access_token, address_id=None):
+    """Available Zepto payment methods for the address. Read-only — places no order.
+    v1 surfaces ONLY methods that are actually wired (card-first). COD/wallet/UPI may be
+    detected but are not offered until their dispatch path ships (PRD-004 fast-follow),
+    so the UI never lets the user pick a method the server would reject."""
+    session_id = _setup_for_checkout(access_token, address_id)
+    text = _mcp_tool(access_token, session_id, "get_payment_methods", {})
+    return [m for m in _parse_methods(text) if m["key"] in _TOOL_FOR_METHOD]
+
+
+def preview_order(access_token, payment_method, address_id, session_id=None):
+    """SAFE preview (confirmOrder=False) — returns live pricing, places NO order."""
+    sid = session_id or _setup_for_checkout(access_token, address_id)
+    tool = _dispatch_tool(payment_method)
+    args = {"confirmOrder": False}
+    if address_id:
+        args["userAddressId"] = address_id
+    return _parse_preview(_mcp_tool(access_token, sid, tool, args))
+
+
+def place_order(access_token, payment_method, address_id, session_id=None):
+    """PLACES THE ORDER (confirmOrder=True). For CARD, immediately calls
+    check_payment_status(poll=False) to obtain the Razorpay payment URL.
+    The single order-placing path in the codebase (M-5)."""
+    import logging
+    sid = session_id or _setup_for_checkout(access_token, address_id)
+    tool = _dispatch_tool(payment_method)
+    args = {"confirmOrder": True}
+    if address_id:
+        args["userAddressId"] = address_id
+    logging.getLogger(__name__).info(
+        "place_order method=%s addr=%s", payment_method, (address_id or "")[:8]
+    )
+    order = _parse_order(_mcp_tool(access_token, sid, tool, args))
+    if (payment_method or "").upper() == "CARD":
+        status_text = _mcp_tool(access_token, sid, "check_payment_status",
+                                {"orderId": order.get("order_id"), "poll": False})
+        order["payment_url"] = _parse_payment_url(status_text)
+        order["type"] = "redirect"
+    else:
+        order["type"] = "confirmed"
+    return order
