@@ -52,6 +52,12 @@ Confidence guidance:
 - 0.20-0.59: Weak fit — system routes to Unsorted
 - Below 0.20: No good fit — use suggested_new_type instead
 
+## Multilingual input (Hindi & mixed Hindi/English are first-class)
+- Read text in ANY language or script. Devanagari/Hindi is fully supported — read it as fluently as English.
+- Classify by INTENT regardless of language: a Hindi grocery list is shopping_list at the SAME confidence as its English equivalent. Never lower confidence just because the text is not in English.
+- Put the visible text VERBATIM in its original script into metadata.original_text (never translate that field), and set metadata.language to the dominant script ("hi" | "en" | "mixed" | iso code).
+- ALL action and display fields MUST be English: rationale, tags, title, summary, topic, and shopping_list items. Normalize each shopping item to the English/romanized grocery name used for search (दूध -> milk, आटा -> atta, अंडे -> eggs, प्याज़ -> onions). Keep the original phrasing only in metadata.original_text.
+
 Known projects for product_idea: {known_projects}
 
 Return ONLY valid JSON:
@@ -62,6 +68,8 @@ Return ONLY valid JSON:
   "metadata": {{
     "description": "what this image shows",
     "extracted_text": "all visible text from the image, verbatim",
+    "original_text": "the visible text verbatim in its ORIGINAL script (e.g. Devanagari) — never translated",
+    "language": "hi | en | mixed | iso code — the text's dominant language/script",
     "structured_data": {{
       "due_date": "YYYY-MM-DD or null",
       "due_time": "HH:MM or null",
@@ -150,6 +158,12 @@ Notes:
 
 If explicit_type is provided in the prompt, you MUST use it. Set confidence ≥ 0.90.
 topic_hint: when provided, use as the `topic` field. Capitalize it.
+
+## Multilingual input (Hindi & mixed Hindi/English are first-class)
+- Read text in ANY language or script — Devanagari/Hindi as fluently as English.
+- Classify by INTENT regardless of language: a Hindi grocery list is shopping_list at the SAME confidence as its English equivalent. Never lower confidence because the text is not English.
+- Put the input text VERBATIM in its original script into metadata.original_text (never translate that field); set metadata.language ("hi" | "en" | "mixed" | iso code).
+- ALL action/display fields MUST be English: rationale, tags, title, summary, topic, and shopping_list items (normalize each item to the English/romanized grocery name for search: दूध -> milk, आटा -> atta). Keep the original only in metadata.original_text.
 
 Known projects for product_idea: {known_projects}
 
@@ -272,6 +286,11 @@ general_note:
   - Catch-all; never score above 0.60 when another type fits better
 
 Suggested new type: if no type scores above 0.20, propose a new type.
+
+## Multilingual input (Hindi & mixed Hindi/English are first-class)
+- Score INTENT independent of language — a Hindi grocery list scores shopping_list exactly as its English equivalent would. Never lower a score because the text is not English.
+- Put the input verbatim in its original script into metadata.original_text (never translate it); set metadata.language ("hi" | "en" | "mixed" | iso code).
+- ALL metadata action/display fields MUST be English: title, summary, topic, and shopping_list items (normalize each to the English/romanized grocery name for search: दूध -> milk, आटा -> atta). Keep the original only in metadata.original_text.
 
 ## Available types
 {type_list}
@@ -435,6 +454,7 @@ Return ONLY valid JSON with no markdown fencing:
   ]
 }
 Normalize item names for grocery search (e.g. "2 kgs of tomatoes" -> name: "tomatoes", quantity: "2 kg").
+Item names MUST be English/romanized for grocery search even if the input is in Hindi or another language (e.g. "दूध" -> "milk", "आटा" -> "atta", "अंडे" -> "eggs").
 Return an empty list if no grocery or household items are found."""
 
 

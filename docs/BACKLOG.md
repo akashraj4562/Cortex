@@ -5,11 +5,20 @@
 
 ---
 
+## P0 — Build next (specs ready)
+
+| ID | Item | Spec | Phase | Status |
+|---|---|---|---|---|
+| BL-002 | Zepto **credit-card checkout** — pay & place the order from inside CORTEX | `PRD-CORTEX-005` + `TECH-CORTEX-005` | Phase 1 | Spec'd, Gate-2 review complete. **Blocker for live test:** Zepto OAuth token expired (health check 2026-06-24) — re-auth via `/api/zepto/init` before end-to-end test. Build can start against mocked MCP. |
+| BL-003 | **Hindi / multilingual image understanding** — Corty reads Devanagari in uploaded images and normalizes to usable English metadata | `PRD-CORTEX-006` + `TECH-CORTEX-006` | Phase 1 | Spec'd, Gate-2 review complete. Touches `classifier.py` (`_IMAGE_SYSTEM`) → classification regression protocol required. |
+
+---
+
 ## P1 — High value, build next
 
 | ID | Item | Description | Phase |
 |---|---|---|---|
-| BL-001 | Neo4j similar-captures graph | Use Neo4j graph DB to power a "Similar Captures" feature — show captures semantically related to the one currently open. Requires embedding each capture on save (via Haiku) and storing in Neo4j with relationship edges. Enables: "you've saved 3 things about MU/semiconductors — see them all." | Phase 2 |
+| BL-001 | Neo4j similar-captures graph | Use Neo4j graph DB to power a "Similar Captures" feature — show captures semantically related to the one currently open. Requires embedding each capture on save (via Haiku) and storing in Neo4j with relationship edges. Enables: "you've saved 3 things about MU/semiconductors — see them all." | Phase 2 — **GATED**: corpus at **74/500** captures (2026-06-24). Do not build until ≥500. |
 
 ---
 

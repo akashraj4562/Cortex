@@ -456,6 +456,14 @@
       text-overflow: ellipsis;
     }
 
+    .card-orig-text {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 2px;
+      opacity: 0.85;
+      line-height: 1.4;
+    }
+
     .card-tags {
       display: flex;
       flex-wrap: wrap;
@@ -1342,6 +1350,17 @@
       sub.className = 'card-subtitle';
       sub.textContent = d.subtitle;
       body.appendChild(sub);
+    }
+
+    // Original-script text (Hindi/Devanagari etc.) — shows Corty read the source faithfully (PRD-006)
+    const origText = card.metadata && card.metadata.original_text;
+    const origLang = card.metadata && card.metadata.language;
+    if (origText && origLang && origLang !== 'en') {
+      const orig = document.createElement('div');
+      orig.className = 'card-orig-text';
+      orig.lang = origLang;
+      orig.textContent = origText;
+      body.appendChild(orig);
     }
 
     // Auto-add results block: shows on archived shopping_list cards with stored results
